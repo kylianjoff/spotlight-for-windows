@@ -3,7 +3,7 @@
 A sleek, modern search bar for Windows inspired by macOS Spotlight. Built with Electron for lightning-fast system-wide search.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Electron](https://img.shields.io/badge/Electron-28.0-47848F?logo=electron)
+![Electron](https://img.shields.io/badge/Electron-39.2.7-47848F?logo=electron)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)
 
 ## ✨ Features
