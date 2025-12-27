@@ -72,10 +72,10 @@ npm start
 - [x] Basic search interface
 - [x] Global hotkey registration
 - [x] Keyboard navigation
-- [ ] File system indexing
+- [x] File system indexing
 - [ ] Application launcher
 - [ ] Web search integration
-- [ ] Fuzzy search with [fuse.js](https://fusejs.io/)
+- [x] Fuzzy search with [fuse.js](https://fusejs.io/)
 - [ ] Custom themes
 - [ ] Settings panel
 - [ ] File preview
