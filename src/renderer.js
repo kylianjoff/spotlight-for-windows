@@ -82,11 +82,26 @@ function displayResults(results) {
   try {
     const html = results
       .map((result, index) => {
-        const name = result.name || 'Sans nom';
+        // Utiliser displayName si disponible, sinon name
+        const displayName = result.displayName || result.name || 'Sans nom';
         const directory = result.directory || '';
         const icon = result.icon || '📄';
         const type = result.type || 'file';
         const isApp = result.isApp || false;
+        const source = result.source || '';
+        
+        // Badge source pour les apps
+        let sourceBadge = '';
+        if (isApp && source) {
+          const sourceLabels = {
+            'steam': 'Steam',
+            'epic_games': 'Epic',
+            'windows_store': 'Store',
+            'program_files': 'Desktop',
+            'windows_system': 'System'
+          };
+          sourceBadge = sourceLabels[source] || '';
+        }
         
         return `
           <div class="result-item ${index === 0 ? 'selected' : ''}" 
@@ -94,10 +109,11 @@ function displayResults(results) {
                data-is-app="${isApp}">
             <span class="result-icon">${icon}</span>
             <div class="result-info">
-              <div class="result-name">${escapeHtml(name)}</div>
+              <div class="result-name">${escapeHtml(displayName)}</div>
               <div class="result-path">${escapeHtml(shortenPath(directory))}</div>
             </div>
             <div class="result-meta">
+              ${sourceBadge ? `<span class="result-source">${sourceBadge}</span>` : ''}
               <span class="result-type">${isApp ? 'APP' : type}</span>
             </div>
           </div>

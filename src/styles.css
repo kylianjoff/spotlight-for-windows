@@ -171,3 +171,14 @@ body {
   background: rgba(100, 150, 255, 0.3);
   font-weight: 600;
 }
+
+.result-source {
+  font-size: 9px;
+  padding: 2px 5px;
+  background: rgba(100, 200, 100, 0.2);
+  border-radius: 3px;
+  text-transform: uppercase;
+  margin-right: 4px;
+  font-weight: 600;
+  color: rgba(100, 255, 100, 0.9);
+}
