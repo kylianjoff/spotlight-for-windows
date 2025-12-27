@@ -35,7 +35,7 @@ app.whenReady().then(() => {
   createWindow();
 
   // Enregistrer le raccourci global : Windows+Alt
-  const ret = globalShortcut.register('Alt+CommandOrControl', () => {
+  const ret = globalShortcut.register('CommandOrControl+Alt+Space', () => {
     if (mainWindow.isVisible()) {
       mainWindow.hide();
     } else {
