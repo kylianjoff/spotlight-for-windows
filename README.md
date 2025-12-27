@@ -73,7 +73,7 @@ npm start
 - [x] Global hotkey registration
 - [x] Keyboard navigation
 - [x] File system indexing
-- [ ] Application launcher
+- [x] Application launcher
 - [ ] Web search integration
 - [x] Fuzzy search with [fuse.js](https://fusejs.io/)
 - [ ] Custom themes
