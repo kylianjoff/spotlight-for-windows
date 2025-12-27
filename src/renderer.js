@@ -86,19 +86,19 @@ function displayResults(results) {
         const directory = result.directory || '';
         const icon = result.icon || '📄';
         const type = result.type || 'file';
-        
-        // Afficher le score de pertinence (debug - optionnel)
-        const scorePercent = Math.round((1 - result.score) * 100);
+        const isApp = result.isApp || false;
         
         return `
-          <div class="result-item ${index === 0 ? 'selected' : ''}" data-index="${index}">
+          <div class="result-item ${index === 0 ? 'selected' : ''}" 
+               data-index="${index}"
+               data-is-app="${isApp}">
             <span class="result-icon">${icon}</span>
             <div class="result-info">
               <div class="result-name">${escapeHtml(name)}</div>
               <div class="result-path">${escapeHtml(shortenPath(directory))}</div>
             </div>
             <div class="result-meta">
-              <span class="result-type">${type}</span>
+              <span class="result-type">${isApp ? 'APP' : type}</span>
             </div>
           </div>
         `;
@@ -107,7 +107,6 @@ function displayResults(results) {
     
     resultsDiv.innerHTML = html;
     
-    // Ajouter les événements click
     document.querySelectorAll('.result-item').forEach((item, index) => {
       item.addEventListener('click', () => {
         openResult(currentResults[index]);

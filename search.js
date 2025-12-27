@@ -6,30 +6,170 @@ const Fuse = require('fuse.js');
 class FileSearcher {
   constructor() {
     this.index = [];
+    this.appsIndex = []; // Index séparé pour les applications
     this.fuse = null;
+    this.appsFuse = null;
     this.isIndexing = false;
-    this.recentFiles = new Set(); // Fichiers récemment ouverts
   }
 
-  // Scanner récursif optimisé
+  // Scanner les applications Windows (méthode améliorée)
+  scanApplications() {
+    const apps = [];
+    
+    // 1. Applications dans Program Files
+    const programPaths = [
+      'C:\\Program Files',
+      'C:\\Program Files (x86)'
+    ];
+    
+    console.log('📱 Scan des applications installées...');
+    
+    for (const programPath of programPaths) {
+      if (!fs.existsSync(programPath)) continue;
+
+      try {
+        const dirs = fs.readdirSync(programPath, { withFileTypes: true });
+        
+        for (const dir of dirs) {
+          if (dir.isDirectory()) {
+            const appPath = path.join(programPath, dir.name);
+            
+            try {
+              // Chercher les .exe directement dans le dossier
+              const files = fs.readdirSync(appPath);
+              const exeFiles = files.filter(f => f.endsWith('.exe'));
+              
+              for (const exe of exeFiles) {
+                // Prioriser les exe qui ont le nom du dossier (exe principal)
+                const isPrimary = exe.toLowerCase().replace('.exe', '') === dir.name.toLowerCase();
+                
+                apps.push({
+                  path: path.join(appPath, exe),
+                  name: exe,
+                  nameWithoutExt: exe.replace('.exe', ''),
+                  directory: appPath,
+                  extension: '.exe',
+                  type: 'application',
+                  icon: '⚙️',
+                  baseScore: isPrimary ? 20 : 15, // Score très élevé pour les apps
+                  size: 0,
+                  modified: new Date(),
+                  isPrimary: isPrimary
+                });
+              }
+            } catch (err) {
+              // Ignorer les erreurs d'accès
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`Erreur scan ${programPath}:`, err.message);
+      }
+    }
+
+    // 2. Applications du menu Démarrer (raccourcis)
+    const startMenuPaths = [
+      path.join(os.homedir(), 'AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs'),
+      'C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs'
+    ];
+
+    for (const startMenuPath of startMenuPaths) {
+      if (!fs.existsSync(startMenuPath)) continue;
+
+      try {
+        this.scanStartMenu(startMenuPath, apps);
+      } catch (err) {
+        console.error(`Erreur scan menu démarrer:`, err.message);
+      }
+    }
+
+    // 3. Applications Windows par défaut (courantes)
+    const windowsApps = [
+      { name: 'Notepad', path: 'C:\\Windows\\System32\\notepad.exe' },
+      { name: 'Calculator', path: 'C:\\Windows\\System32\\calc.exe' },
+      { name: 'Paint', path: 'C:\\Windows\\System32\\mspaint.exe' },
+      { name: 'Command Prompt', path: 'C:\\Windows\\System32\\cmd.exe' },
+      { name: 'PowerShell', path: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe' },
+      { name: 'Task Manager', path: 'C:\\Windows\\System32\\taskmgr.exe' },
+      { name: 'Explorer', path: 'C:\\Windows\\explorer.exe' },
+    ];
+
+    for (const app of windowsApps) {
+      if (fs.existsSync(app.path)) {
+        apps.push({
+          path: app.path,
+          name: app.name + '.exe',
+          nameWithoutExt: app.name,
+          directory: path.dirname(app.path),
+          extension: '.exe',
+          type: 'application',
+          icon: '⚙️',
+          baseScore: 25, // Score maximum pour les apps système
+          size: 0,
+          modified: new Date(),
+          isPrimary: true
+        });
+      }
+    }
+
+    console.log(`  ✓ ${apps.length} applications trouvées`);
+    return apps;
+  }
+
+  // Scanner le menu démarrer pour les raccourcis .lnk
+  scanStartMenu(dir, apps, depth = 0) {
+    if (depth > 2) return;
+
+    try {
+      const items = fs.readdirSync(dir, { withFileTypes: true });
+
+      for (const item of items) {
+        const fullPath = path.join(dir, item.name);
+
+        if (item.isDirectory()) {
+          this.scanStartMenu(fullPath, apps, depth + 1);
+        } else if (item.name.endsWith('.lnk')) {
+          // Raccourci trouvé
+          const appName = item.name.replace('.lnk', '');
+          
+          apps.push({
+            path: fullPath,
+            name: appName,
+            nameWithoutExt: appName,
+            directory: dir,
+            extension: '.lnk',
+            type: 'application',
+            icon: '🔗',
+            baseScore: 18,
+            size: 0,
+            modified: new Date(),
+            isPrimary: true,
+            isShortcut: true
+          });
+        }
+      }
+    } catch (err) {
+      // Ignorer
+    }
+  }
+
+  // Scanner récursif pour les fichiers normaux
   scanDirectory(dir, depth = 0, maxDepth = 3) {
     if (depth > maxDepth) return [];
     
     const files = [];
     
-    // Dossiers à ignorer
     const ignoreDirs = [
       'node_modules', '.git', 'AppData', '$RECYCLE.BIN', 
       'System Volume Information', 'Windows', 'ProgramData',
       '.vscode', '.idea', '__pycache__', 'dist', 'build',
-      'tmp', 'temp', 'cache'
+      'tmp', 'temp', 'cache', 'Program Files', 'Program Files (x86)'
     ];
     
     try {
       const items = fs.readdirSync(dir, { withFileTypes: true });
       
       for (const item of items) {
-        // Ignorer les fichiers/dossiers cachés et système
         if (item.name.startsWith('.') || item.name.startsWith('$')) {
           continue;
         }
@@ -51,41 +191,36 @@ class FileSearcher {
               icon: this.getIcon(ext),
               size: stats.size,
               modified: stats.mtime,
-              // Score de pertinence initial basé sur la localisation
               baseScore: this.getLocationScore(dir)
             });
           } else if (item.isDirectory() && depth < maxDepth) {
-            // Ignorer certains dossiers
             if (!ignoreDirs.includes(item.name)) {
               files.push(...this.scanDirectory(fullPath, depth + 1, maxDepth));
             }
           }
         } catch (err) {
-          // Ignorer les erreurs d'accès (permissions, etc.)
+          // Ignorer
         }
       }
     } catch (err) {
-      // Dossier inaccessible
+      // Ignorer
     }
     
     return files;
   }
 
-  // Score basé sur l'emplacement du fichier
   getLocationScore(directory) {
     const userHome = os.homedir();
     
-    // Scores de priorité par emplacement
     if (directory.includes(path.join(userHome, 'Desktop'))) return 10;
     if (directory.includes(path.join(userHome, 'Documents'))) return 9;
     if (directory.includes(path.join(userHome, 'Downloads'))) return 8;
     if (directory.includes(path.join(userHome, 'Pictures'))) return 7;
     if (directory.includes(path.join(userHome, 'Videos'))) return 7;
     if (directory.includes(path.join(userHome, 'Music'))) return 7;
-    if (directory.includes(userHome)) return 6; // Autres dossiers user
-    if (directory.includes('C:\\Program Files')) return 5;
+    if (directory.includes(userHome)) return 6;
     
-    return 3; // Par défaut
+    return 3;
   }
 
   async buildIndex() {
@@ -101,24 +236,18 @@ class FileSearcher {
     try {
       const userHome = os.homedir();
       
-      // Dossiers principaux à indexer
+      // 1. D'abord indexer les APPLICATIONS (priorité absolue)
+      this.appsIndex = this.scanApplications();
+      
+      // 2. Ensuite les fichiers
       const searchPaths = [
-        // Dossiers utilisateur (priorité haute)
         { path: path.join(userHome, 'Desktop'), depth: 3 },
         { path: path.join(userHome, 'Documents'), depth: 3 },
         { path: path.join(userHome, 'Downloads'), depth: 3 },
         { path: path.join(userHome, 'Pictures'), depth: 2 },
         { path: path.join(userHome, 'Videos'), depth: 2 },
         { path: path.join(userHome, 'Music'), depth: 2 },
-        
-        // Autres dossiers utilisateur
         { path: userHome, depth: 1 },
-        
-        // Applications
-        { path: 'C:\\Program Files', depth: 2 },
-        { path: 'C:\\Program Files (x86)', depth: 2 },
-        
-        // Disques supplémentaires (si existent)
         { path: 'D:\\', depth: 2 },
         { path: 'E:\\', depth: 2 },
       ];
@@ -126,39 +255,48 @@ class FileSearcher {
       this.index = [];
 
       for (const { path: searchPath, depth } of searchPaths) {
-        if (!fs.existsSync(searchPath)) {
-          continue;
-        }
+        if (!fs.existsSync(searchPath)) continue;
         
-        console.log(`📂 Scan de ${searchPath} (profondeur ${depth})...`);
+        console.log(`📂 Scan de ${searchPath}...`);
         const files = this.scanDirectory(searchPath, 0, depth);
-        console.log(`  ✓ ${files.length} fichiers trouvés`);
+        console.log(`  ✓ ${files.length} fichiers`);
         this.index.push(...files);
       }
 
-      // Ajouter les applications Windows
-      console.log('⚙️ Scan des applications...');
-      const apps = this.scanApplications();
-      console.log(`  ✓ ${apps.length} applications trouvées`);
-      this.index.push(...apps);
-
-      // Configurer Fuse.js avec pondération avancée
-      this.fuse = new Fuse(this.index, {
+      // Configurer Fuse.js SÉPARÉ pour les applications
+      this.appsFuse = new Fuse(this.appsIndex, {
         keys: [
-          { name: 'nameWithoutExt', weight: 1.0 },  // Nom sans extension (max priorité)
-          { name: 'name', weight: 0.8 },            // Nom complet
-          { name: 'directory', weight: 0.2 }        // Chemin (faible poids)
+          { name: 'nameWithoutExt', weight: 1.0 },
+          { name: 'name', weight: 0.9 }
         ],
-        threshold: 0.4,        // Tolérance aux erreurs
-        distance: 100,         // Distance de recherche
+        threshold: 0.3,      // Plus strict pour les apps
+        distance: 50,
         includeScore: true,
         minMatchCharLength: 1,
-        ignoreLocation: true,  // Ne pas se fier à la position dans la chaîne
-        shouldSort: true       // Trier par pertinence
+        ignoreLocation: true,
+        shouldSort: true
+      });
+
+      // Configurer Fuse.js pour les fichiers
+      this.fuse = new Fuse(this.index, {
+        keys: [
+          { name: 'nameWithoutExt', weight: 1.0 },
+          { name: 'name', weight: 0.8 },
+          { name: 'directory', weight: 0.2 }
+        ],
+        threshold: 0.4,
+        distance: 100,
+        includeScore: true,
+        minMatchCharLength: 1,
+        ignoreLocation: true,
+        shouldSort: true
       });
 
       const endTime = Date.now();
-      console.log(`✅ Indexation terminée: ${this.index.length} éléments en ${(endTime - startTime) / 1000}s`);
+      console.log(`✅ Indexation terminée:`);
+      console.log(`   📱 ${this.appsIndex.length} applications`);
+      console.log(`   📄 ${this.index.length} fichiers`);
+      console.log(`   ⏱️  ${(endTime - startTime) / 1000}s`);
     } catch (error) {
       console.error('❌ Erreur lors de l\'indexation:', error);
     } finally {
@@ -166,254 +304,116 @@ class FileSearcher {
     }
   }
 
-  // Scanner les applications installées
-  scanApplications() {
-    const apps = [];
-    const programPaths = [
-      'C:\\Program Files',
-      'C:\\Program Files (x86)'
-    ];
-    
-    for (const programPath of programPaths) {
-      if (!fs.existsSync(programPath)) continue;
-
-      try {
-        const dirs = fs.readdirSync(programPath, { withFileTypes: true });
-        
-        for (const dir of dirs) {
-          if (dir.isDirectory()) {
-            const appPath = path.join(programPath, dir.name);
-            
-            try {
-              const files = fs.readdirSync(appPath);
-              const exeFiles = files.filter(f => f.endsWith('.exe'));
-              
-              for (const exe of exeFiles.slice(0, 3)) { // Max 3 exe par app
-                apps.push({
-                  path: path.join(appPath, exe),
-                  name: exe,
-                  nameWithoutExt: exe.replace('.exe', ''),
-                  directory: appPath,
-                  extension: '.exe',
-                  type: 'application',
-                  icon: '⚙️',
-                  baseScore: 8, // Apps ont un score élevé
-                  size: 0,
-                  modified: new Date()
-                });
-              }
-            } catch (err) {
-              // Ignorer
-            }
-          }
-        }
-      } catch (err) {
-        // Ignorer
-      }
-    }
-
-    return apps;
-  }
-
-  // Recherche intelligente avec scoring personnalisé
+  // Recherche intelligente avec APPLICATIONS EN PRIORITÉ
   search(query, limit = 15) {
     if (!query || query.trim().length === 0) {
       return [];
     }
 
-    if (!this.fuse) {
+    if (!this.appsFuse || !this.fuse) {
       console.log('⚠️ Index pas encore prêt');
       return [];
     }
 
     const startSearch = Date.now();
     
-    // Recherche avec Fuse.js
-    let results = this.fuse.search(query, { limit: limit * 3 }); // Chercher plus pour mieux trier
+    // 1. CHERCHER D'ABORD DANS LES APPLICATIONS
+    let appResults = this.appsFuse.search(query, { limit: 8 });
     
-    // Calculer un score personnalisé
-    results = results.map(result => {
+    // 2. CHERCHER DANS LES FICHIERS
+    let fileResults = this.fuse.search(query, { limit: limit * 2 });
+    
+    // 3. Scoring personnalisé pour les apps
+    appResults = appResults.map(result => {
       const item = result.item;
-      let customScore = result.score; // Score Fuse (0 = parfait, 1 = mauvais)
+      let customScore = result.score * 0.3; // Apps ont un énorme bonus (x0.3)
       
-      // Bonus pour les fichiers récents
-      const daysSinceModified = (Date.now() - item.modified) / (1000 * 60 * 60 * 24);
-      if (daysSinceModified < 7) {
-        customScore *= 0.8; // Bonus 20%
-      } else if (daysSinceModified < 30) {
-        customScore *= 0.9; // Bonus 10%
+      // Super bonus si c'est l'app principale
+      if (item.isPrimary) {
+        customScore *= 0.5;
       }
       
-      // Bonus selon l'emplacement (baseScore élevé = meilleur)
-      customScore *= (11 - item.baseScore) / 10;
-      
-      // Bonus pour les fichiers avec le bon type
-      const queryLower = query.toLowerCase();
-      if (queryLower.includes(item.type)) {
-        customScore *= 0.85;
-      }
-      
-      // Bonus si le nom commence par la query (match exact au début)
-      if (item.nameWithoutExt.toLowerCase().startsWith(queryLower)) {
-        customScore *= 0.6; // Gros bonus
-      }
-      
-      // Bonus pour les extensions populaires
-      const popularExts = ['.pdf', '.docx', '.xlsx', '.pptx', '.txt', '.png', '.jpg'];
-      if (popularExts.includes(item.extension)) {
-        customScore *= 0.95;
+      // Bonus si le nom commence par la query
+      if (item.nameWithoutExt.toLowerCase().startsWith(query.toLowerCase())) {
+        customScore *= 0.4;
       }
       
       return {
         ...item,
         score: customScore,
-        originalScore: result.score
+        isApp: true
       };
     });
     
-    // Trier par score personnalisé
-    results.sort((a, b) => a.score - b.score);
+    // 4. Scoring pour les fichiers
+    fileResults = fileResults.map(result => {
+      const item = result.item;
+      let customScore = result.score;
+      
+      // Bonus pour fichiers récents
+      const daysSinceModified = (Date.now() - item.modified) / (1000 * 60 * 60 * 24);
+      if (daysSinceModified < 7) customScore *= 0.8;
+      else if (daysSinceModified < 30) customScore *= 0.9;
+      
+      // Bonus selon l'emplacement
+      customScore *= (11 - item.baseScore) / 10;
+      
+      // Bonus si match au début
+      if (item.nameWithoutExt.toLowerCase().startsWith(query.toLowerCase())) {
+        customScore *= 0.6;
+      }
+      
+      return {
+        ...item,
+        score: customScore,
+        isApp: false
+      };
+    });
     
-    // Limiter aux meilleurs résultats
-    results = results.slice(0, limit);
+    // 5. COMBINER : Apps d'abord, puis fichiers
+    const allResults = [...appResults, ...fileResults];
+    
+    // Trier par score
+    allResults.sort((a, b) => a.score - b.score);
+    
+    // Limiter
+    const finalResults = allResults.slice(0, limit);
     
     const endSearch = Date.now();
-    console.log(`🔎 Recherche "${query}": ${results.length} résultats en ${endSearch - startSearch}ms`);
+    console.log(`🔎 "${query}": ${appResults.length} apps, ${fileResults.length} fichiers -> ${finalResults.length} résultats (${endSearch - startSearch}ms)`);
     
-    return results;
+    return finalResults;
   }
 
   getFileType(ext) {
     const types = {
-      // Documents
-      '.pdf': 'document',
-      '.doc': 'document',
-      '.docx': 'document',
-      '.txt': 'document',
-      '.md': 'document',
-      '.rtf': 'document',
-      '.odt': 'document',
-      
-      // Tableurs
-      '.xlsx': 'spreadsheet',
-      '.xls': 'spreadsheet',
-      '.csv': 'spreadsheet',
-      
-      // Présentations
-      '.pptx': 'presentation',
-      '.ppt': 'presentation',
-      
-      // Images
-      '.jpg': 'image',
-      '.jpeg': 'image',
-      '.png': 'image',
-      '.gif': 'image',
-      '.svg': 'image',
-      '.webp': 'image',
-      '.bmp': 'image',
-      '.ico': 'image',
-      
-      // Vidéos
-      '.mp4': 'video',
-      '.avi': 'video',
-      '.mkv': 'video',
-      '.mov': 'video',
-      '.wmv': 'video',
-      '.flv': 'video',
-      
-      // Audio
-      '.mp3': 'audio',
-      '.wav': 'audio',
-      '.flac': 'audio',
-      '.m4a': 'audio',
-      '.ogg': 'audio',
-      
-      // Code
-      '.js': 'code',
-      '.ts': 'code',
-      '.tsx': 'code',
-      '.jsx': 'code',
-      '.py': 'code',
-      '.java': 'code',
-      '.cpp': 'code',
-      '.c': 'code',
-      '.h': 'code',
-      '.cs': 'code',
-      '.php': 'code',
-      '.rb': 'code',
-      '.go': 'code',
-      '.rs': 'code',
-      '.html': 'code',
-      '.css': 'code',
-      '.scss': 'code',
-      '.json': 'code',
-      '.xml': 'code',
-      '.yaml': 'code',
-      '.yml': 'code',
-      
-      // Archives
-      '.zip': 'archive',
-      '.rar': 'archive',
-      '.7z': 'archive',
-      '.tar': 'archive',
-      '.gz': 'archive',
-      
-      // Applications
-      '.exe': 'application',
-      '.msi': 'application',
-      '.bat': 'script',
-      '.sh': 'script',
-      '.ps1': 'script',
+      '.pdf': 'document', '.doc': 'document', '.docx': 'document',
+      '.txt': 'document', '.md': 'document', '.rtf': 'document',
+      '.xlsx': 'spreadsheet', '.xls': 'spreadsheet', '.csv': 'spreadsheet',
+      '.pptx': 'presentation', '.ppt': 'presentation',
+      '.jpg': 'image', '.jpeg': 'image', '.png': 'image', '.gif': 'image',
+      '.svg': 'image', '.webp': 'image',
+      '.mp4': 'video', '.avi': 'video', '.mkv': 'video', '.mov': 'video',
+      '.mp3': 'audio', '.wav': 'audio', '.flac': 'audio',
+      '.js': 'code', '.ts': 'code', '.py': 'code', '.java': 'code',
+      '.cpp': 'code', '.c': 'code', '.html': 'code', '.css': 'code',
+      '.json': 'code', '.xml': 'code',
+      '.zip': 'archive', '.rar': 'archive', '.7z': 'archive',
+      '.exe': 'application', '.msi': 'application',
+      '.lnk': 'shortcut',
     };
-
     return types[ext.toLowerCase()] || 'file';
   }
 
   getIcon(ext) {
     const icons = {
-      '.pdf': '📄',
-      '.doc': '📝',
-      '.docx': '📝',
-      '.txt': '📃',
-      '.md': '📋',
-      
-      '.xlsx': '📊',
-      '.xls': '📊',
-      '.csv': '📊',
-      
-      '.pptx': '📽️',
-      '.ppt': '📽️',
-      
-      '.jpg': '🖼️',
-      '.jpeg': '🖼️',
-      '.png': '🖼️',
-      '.gif': '🖼️',
-      '.svg': '🎨',
-      
-      '.mp4': '🎬',
-      '.avi': '🎬',
-      '.mkv': '🎬',
-      
-      '.mp3': '🎵',
-      '.wav': '🎵',
-      '.flac': '🎵',
-      
-      '.js': '📜',
-      '.ts': '📜',
-      '.py': '🐍',
-      '.java': '☕',
-      '.cpp': '⚙️',
-      '.html': '🌐',
-      '.css': '🎨',
-      
-      '.zip': '📦',
-      '.rar': '📦',
-      '.7z': '📦',
-      
-      '.exe': '⚙️',
-      '.msi': '📦',
+      '.pdf': '📄', '.doc': '📝', '.docx': '📝', '.txt': '📃',
+      '.xlsx': '📊', '.xls': '📊', '.pptx': '📽️',
+      '.jpg': '🖼️', '.jpeg': '🖼️', '.png': '🖼️', '.gif': '🖼️',
+      '.mp4': '🎬', '.avi': '🎬', '.mp3': '🎵',
+      '.js': '📜', '.py': '🐍', '.java': '☕', '.html': '🌐',
+      '.zip': '📦', '.exe': '⚙️', '.lnk': '🔗',
     };
-
     return icons[ext.toLowerCase()] || '📄';
   }
 }

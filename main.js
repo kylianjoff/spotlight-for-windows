@@ -1,6 +1,7 @@
-const { app, BrowserWindow, globalShortcut, ipcMain } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, shell, app: electronApp } = require('electron');
 const path = require('path');
 const FileSearcher = require('./search.js');
+const { exec } = require('child_process');
 
 let mainWindow;
 let searcher;
@@ -82,12 +83,37 @@ ipcMain.handle('search-files', async (event, query) => {
   return searcher.search(query, 15);
 });
 
-// Ouvrir un fichier
+// Ouvrir un fichier ou application
 ipcMain.handle('open-file', async (event, filePath) => {
   try {
-    await shell.openPath(filePath);
+    console.log('Ouverture de:', filePath);
+    
+    // Si c'est un raccourci .lnk, utiliser une méthode spéciale
+    if (filePath.endsWith('.lnk')) {
+      return new Promise((resolve) => {
+        // Utiliser PowerShell pour ouvrir le raccourci
+        exec(`powershell -command "Start-Process '${filePath}'"`, (error) => {
+          if (error) {
+            console.error('Erreur PowerShell:', error);
+            resolve({ success: false, error: error.message });
+          } else {
+            resolve({ success: true });
+          }
+        });
+      });
+    }
+    
+    // Sinon, utiliser shell.openPath normal
+    const result = await shell.openPath(filePath);
+    
+    if (result) {
+      // result contient un message d'erreur si échec
+      return { success: false, error: result };
+    }
+    
     return { success: true };
   } catch (error) {
+    console.error('Erreur ouverture:', error);
     return { success: false, error: error.message };
   }
 });

@@ -146,3 +146,28 @@ body {
   color: rgba(255, 255, 255, 0.5);
   font-family: monospace;
 }
+
+.result-item[data-is-app="true"] {
+  background: rgba(100, 150, 255, 0.15);
+  border-left: 3px solid rgba(100, 150, 255, 0.6);
+}
+
+.result-item[data-is-app="true"]:hover,
+.result-item[data-is-app="true"].selected {
+  background: rgba(100, 150, 255, 0.35);
+  border-left: 3px solid rgba(100, 150, 255, 1);
+}
+
+.result-type {
+  font-size: 10px;
+  padding: 3px 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.result-item[data-is-app="true"] .result-type {
+  background: rgba(100, 150, 255, 0.3);
+  font-weight: 600;
+}
