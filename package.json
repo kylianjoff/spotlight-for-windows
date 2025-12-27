@@ -13,5 +13,9 @@
   "type": "commonjs",
   "devDependencies": {
     "electron": "^39.2.7"
+  },
+  "dependencies": {
+    "fast-glob": "^3.3.3",
+    "fuse.js": "^7.1.0"
   }
 }

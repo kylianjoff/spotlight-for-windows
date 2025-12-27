@@ -1,7 +1,9 @@
 const { app, BrowserWindow, globalShortcut, ipcMain } = require('electron');
 const path = require('path');
+const FileSearcher = require('./search.js');
 
 let mainWindow;
+let searcher;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -34,6 +36,14 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
+  // Initialiser le searcher
+  searcher = new FileSearcher();
+
+  // Lancer l'indexation en arrière-plan
+  searcher.buildIndex().then(() => {
+    console.log('Index prêt !');
+  });
+
   // Enregistrer le raccourci global : Windows+Alt
   const ret = globalShortcut.register('CommandOrControl+Alt+Space', () => {
     if (mainWindow.isVisible()) {
@@ -64,4 +74,20 @@ app.on('will-quit', () => {
 // Gérer la fermeture depuis le renderer
 ipcMain.on('hide-window', () => {
   mainWindow.hide();
+});
+
+// Gérer les recherches
+ipcMain.handle('search-files', async (event, query) => {
+  if (!searcher) return [];
+  return searcher.search(query, 15);
+});
+
+// Ouvrir un fichier
+ipcMain.handle('open-file', async (event, filePath) => {
+  try {
+    await shell.openPath(filePath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });
