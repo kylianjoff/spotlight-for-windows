@@ -129,3 +129,13 @@ ipcMain.handle('get-app-icon', async (event, appPath) => {
     return null;
   }
 });
+
+// Ouvrir une URL dans le navigateur par défaut
+ipcMain.handle('open-url', async (event, url) => {
+  try {
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

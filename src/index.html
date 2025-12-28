@@ -10,10 +10,36 @@
     <input 
       type="text" 
       id="searchInput" 
-      placeholder="Rechercher..." 
+      placeholder="Rechercher applications, fichiers, web..." 
       autofocus
     >
-    <div id="results" class="results"></div>
+    
+    <!-- Section Applications -->
+    <div class="section" id="appsSection">
+      <div class="section-header">
+        <span class="section-icon">⚙️</span>
+        <h3>Applications</h3>
+      </div>
+      <div class="section-results" id="appResults"></div>
+    </div>
+
+    <!-- Section Fichiers -->
+    <div class="section" id="filesSection">
+      <div class="section-header">
+        <span class="section-icon">📄</span>
+        <h3>Fichiers</h3>
+      </div>
+      <div class="section-results" id="fileResults"></div>
+    </div>
+
+    <!-- Section Recherche Web -->
+    <div class="section" id="webSection">
+      <div class="section-header">
+        <span class="section-icon">🌐</span>
+        <h3>Recherche Web</h3>
+      </div>
+      <div class="section-results" id="searchResults"></div>
+    </div>
   </div>
   
   <script src="renderer.js"></script>
