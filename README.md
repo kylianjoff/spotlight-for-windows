@@ -74,7 +74,7 @@ npm start
 - [x] Keyboard navigation
 - [x] File system indexing
 - [x] Application launcher
-- [ ] Web search integration
+- [x] Web search integration
 - [x] Fuzzy search with [fuse.js](https://fusejs.io/)
 - [ ] Custom themes
 - [ ] Settings panel
