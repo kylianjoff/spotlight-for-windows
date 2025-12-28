@@ -106,6 +106,7 @@ This project is currently closed to contributions.
 mon-spotlight/
 ├── main.js              # Electron main process
 ├── preload.js           # Preload script (security bridge)
+├── search.js            # Search script
 ├── package.json         # Project dependencies
 ├── src/
 │   ├── index.html       # Application UI
