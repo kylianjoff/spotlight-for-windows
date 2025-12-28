@@ -117,3 +117,15 @@ ipcMain.handle('open-file', async (event, filePath) => {
     return { success: false, error: error.message };
   }
 });
+
+// Handler pour obtenir l'icône d'une app
+ipcMain.handle('get-app-icon', async (event, appPath) => {
+  if (!searcher || !searcher.iconExtractor) return null;
+  
+  try {
+    const iconPath = await searcher.iconExtractor.extractIcon(appPath, 'app');
+    return iconPath;
+  } catch (error) {
+    return null;
+  }
+});

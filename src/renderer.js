@@ -69,7 +69,7 @@ searchInput.addEventListener('keydown', (e) => {
   }
 });
 
-function displayResults(results) {
+async function displayResults(results) {
   console.log('displayResults appelé avec', results.length, 'résultats');
   
   selectedIndex = 0;
@@ -80,9 +80,9 @@ function displayResults(results) {
   }
   
   try {
+    // Créer le HTML de base
     const html = results
       .map((result, index) => {
-        // Utiliser displayName si disponible, sinon name
         const displayName = result.displayName || result.name || 'Sans nom';
         const directory = result.directory || '';
         const icon = result.icon || '📄';
@@ -90,14 +90,13 @@ function displayResults(results) {
         const isApp = result.isApp || false;
         const source = result.source || '';
         
-        // Badge source pour les apps
         let sourceBadge = '';
         if (isApp && source) {
           const sourceLabels = {
             'steam': 'Steam',
             'epic_games': 'Epic',
             'windows_store': 'Store',
-            'program_files': 'Desktop',
+            'registry': 'Installed',
             'windows_system': 'System'
           };
           sourceBadge = sourceLabels[source] || '';
@@ -107,7 +106,9 @@ function displayResults(results) {
           <div class="result-item ${index === 0 ? 'selected' : ''}" 
                data-index="${index}"
                data-is-app="${isApp}">
-            <span class="result-icon">${icon}</span>
+            <span class="result-icon" data-path="${escapeHtml(result.path)}">
+              ${icon}
+            </span>
             <div class="result-info">
               <div class="result-name">${escapeHtml(displayName)}</div>
               <div class="result-path">${escapeHtml(shortenPath(directory))}</div>
@@ -123,6 +124,25 @@ function displayResults(results) {
     
     resultsDiv.innerHTML = html;
     
+    // Charger les vraies icônes pour les applications
+    results.forEach(async (result, index) => {
+      if (result.isApp) {
+        const iconSpan = document.querySelector(`.result-item[data-index="${index}"] .result-icon`);
+        
+        // Si l'icône a déjà été extraite
+        if (result.iconPath) {
+          iconSpan.innerHTML = `<img src="${result.iconPath}" class="app-icon" alt="icon">`;
+        } else {
+          // Extraire l'icône à la demande
+          const iconPath = await window.electronAPI.getAppIcon(result.path);
+          if (iconPath) {
+            iconSpan.innerHTML = `<img src="${iconPath}" class="app-icon" alt="icon">`;
+          }
+        }
+      }
+    });
+    
+    // Ajouter les événements click
     document.querySelectorAll('.result-item').forEach((item, index) => {
       item.addEventListener('click', () => {
         openResult(currentResults[index]);

@@ -3,6 +3,7 @@ const path = require('path');
 const os = require('os');
 const Fuse = require('fuse.js');
 const { execSync } = require('child_process');
+const IconExtractor = require('./icon-extractor.js');
 
 class FileSearcher {
   constructor() {
@@ -11,6 +12,7 @@ class FileSearcher {
     this.fuse = null;
     this.appsFuse = null;
     this.isIndexing = false;
+    this.iconExtractor = new IconExtractor();
   }
 
   // MÉTHODE 1: Utiliser le registre Windows pour trouver TOUTES les apps installées
@@ -514,83 +516,107 @@ class FileSearcher {
   // Je te mets juste buildIndex mis à jour
 
   async buildIndex() {
-    if (this.isIndexing) {
-      console.log('Indexation déjà en cours...');
-      return;
-    }
+  if (this.isIndexing) {
+    console.log('Indexation déjà en cours...');
+    return;
+  }
+  
+  this.isIndexing = true;
+  console.log('🔍 Début de l\'indexation UNIVERSELLE...');
+  const startTime = Date.now();
+
+  try {
+    const userHome = os.homedir();
     
-    this.isIndexing = true;
-    console.log('🔍 Début de l\'indexation UNIVERSELLE...');
-    const startTime = Date.now();
+    // 1. APPLICATIONS (découverte automatique)
+    this.appsIndex = this.scanApplications();
+    
+    // 2. EXTRACTION DES ICÔNES (en arrière-plan)
+    console.log('🎨 Extraction des icônes...');
+    this.extractIconsInBackground();
+    
+    // 3. FICHIERS
+    const searchPaths = [
+      { path: path.join(userHome, 'Desktop'), depth: 3 },
+      { path: path.join(userHome, 'Documents'), depth: 3 },
+      { path: path.join(userHome, 'Downloads'), depth: 3 },
+      { path: path.join(userHome, 'Pictures'), depth: 2 },
+      { path: path.join(userHome, 'Videos'), depth: 2 },
+      { path: path.join(userHome, 'Music'), depth: 2 },
+    ];
 
+    this.index = [];
+
+    for (const { path: searchPath, depth } of searchPaths) {
+      if (!fs.existsSync(searchPath)) continue;
+      
+      console.log(`📂 Scan de ${searchPath}...`);
+      const files = this.scanDirectory(searchPath, 0, depth);
+      console.log(`  ✓ ${files.length} fichiers`);
+      this.index.push(...files);
+    }
+
+    // Configurer Fuse.js...
+    this.appsFuse = new Fuse(this.appsIndex, {
+      keys: [
+        { name: 'displayName', weight: 1.2 },
+        { name: 'nameWithoutExt', weight: 1.0 },
+        { name: 'name', weight: 0.9 }
+      ],
+      threshold: 0.3,
+      distance: 50,
+      includeScore: true,
+      minMatchCharLength: 1,
+      ignoreLocation: true,
+      shouldSort: true
+    });
+
+    this.fuse = new Fuse(this.index, {
+      keys: [
+        { name: 'nameWithoutExt', weight: 1.0 },
+        { name: 'name', weight: 0.8 },
+        { name: 'directory', weight: 0.2 }
+      ],
+      threshold: 0.4,
+      distance: 100,
+      includeScore: true,
+      minMatchCharLength: 1,
+      ignoreLocation: true,
+      shouldSort: true
+    });
+
+    const endTime = Date.now();
+    console.log(`✅ Indexation terminée:`);
+    console.log(`   📱 ${this.appsIndex.length} applications`);
+    console.log(`   📄 ${this.index.length} fichiers`);
+    console.log(`   ⏱️  ${(endTime - startTime) / 1000}s`);
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'indexation:', error);
+  } finally {
+    this.isIndexing = false;
+  }
+}
+
+// Extraire les icônes en arrière-plan
+async extractIconsInBackground() {
+  // Extraire les icônes des 50 premières apps (les plus importantes)
+  const topApps = this.appsIndex.slice(0, 50);
+  
+  let extracted = 0;
+  for (const app of topApps) {
     try {
-      const userHome = os.homedir();
-      
-      // 1. APPLICATIONS (découverte automatique)
-      this.appsIndex = this.scanApplications();
-      
-      // 2. FICHIERS
-      const searchPaths = [
-        { path: path.join(userHome, 'Desktop'), depth: 3 },
-        { path: path.join(userHome, 'Documents'), depth: 3 },
-        { path: path.join(userHome, 'Downloads'), depth: 3 },
-        { path: path.join(userHome, 'Pictures'), depth: 2 },
-        { path: path.join(userHome, 'Videos'), depth: 2 },
-        { path: path.join(userHome, 'Music'), depth: 2 },
-      ];
-
-      this.index = [];
-
-      for (const { path: searchPath, depth } of searchPaths) {
-        if (!fs.existsSync(searchPath)) continue;
-        
-        console.log(`📂 Scan de ${searchPath}...`);
-        const files = this.scanDirectory(searchPath, 0, depth);
-        console.log(`  ✓ ${files.length} fichiers`);
-        this.index.push(...files);
+      const iconPath = await this.iconExtractor.extractIcon(app.path, app.displayName || app.name);
+      if (iconPath) {
+        app.iconPath = iconPath;
+        extracted++;
       }
-
-      // Configurer Fuse.js pour les applications
-      this.appsFuse = new Fuse(this.appsIndex, {
-        keys: [
-          { name: 'displayName', weight: 1.2 },
-          { name: 'nameWithoutExt', weight: 1.0 },
-          { name: 'name', weight: 0.9 }
-        ],
-        threshold: 0.3,
-        distance: 50,
-        includeScore: true,
-        minMatchCharLength: 1,
-        ignoreLocation: true,
-        shouldSort: true
-      });
-
-      // Configurer Fuse.js pour les fichiers
-      this.fuse = new Fuse(this.index, {
-        keys: [
-          { name: 'nameWithoutExt', weight: 1.0 },
-          { name: 'name', weight: 0.8 },
-          { name: 'directory', weight: 0.2 }
-        ],
-        threshold: 0.4,
-        distance: 100,
-        includeScore: true,
-        minMatchCharLength: 1,
-        ignoreLocation: true,
-        shouldSort: true
-      });
-
-      const endTime = Date.now();
-      console.log(`✅ Indexation terminée:`);
-      console.log(`   📱 ${this.appsIndex.length} applications`);
-      console.log(`   📄 ${this.index.length} fichiers`);
-      console.log(`   ⏱️  ${(endTime - startTime) / 1000}s`);
     } catch (error) {
-      console.error('❌ Erreur lors de l\'indexation:', error);
-    } finally {
-      this.isIndexing = false;
+      // Continuer même si extraction échoue
     }
   }
+  
+  console.log(`  ✓ ${extracted} icônes extraites`);
+}
 
   // Scanner fichiers (identique à avant)
   scanDirectory(dir, depth = 0, maxDepth = 3) {
