@@ -5,6 +5,34 @@ const webSection = document.getElementById('webSection');
 const appResultsDiv = document.getElementById('appResults');
 const fileResultsDiv = document.getElementById('fileResults');
 const searchResultsDiv = document.getElementById('searchResults');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const closeSettings = document.getElementById('closeSettings');
+const languageSelect = document.getElementById('languageSelect');
+
+// Initialiser la langue
+i18n.updateUI();
+languageSelect.value = i18n.getCurrentLanguage();
+
+// Event listener pour changer la langue
+languageSelect.addEventListener('change', (e) => {
+  i18n.setLanguage(e.target.value);
+});
+
+// Ouvrir/fermer les paramètres
+settingsBtn.addEventListener('click', () => {
+  settingsModal.style.display = 'flex';
+});
+
+closeSettings.addEventListener('click', () => {
+  settingsModal.style.display = 'none';
+});
+
+settingsModal.addEventListener('click', (e) => {
+  if(e.target === settingsModal) {
+    settingsModal.style.display = 'none';
+  }
+});
 
 let selectedIndex = 0;
 let allResults = []; // Tous les résultats combinés pour la navigation
@@ -27,9 +55,9 @@ searchInput.addEventListener('input', async (e) => {
   
   searchTimeout = setTimeout(async () => {
     // Afficher loaders
-    showSection(appsSection, '<div class="loading">Recherche applications...</div>');
-    showSection(filesSection, '<div class="loading">Recherche fichiers...</div>');
-    showSection(webSection, '<div class="loading">Recherche sur le web...</div>');
+    showSection(appsSection, `<div class="loading">${i18n.t('search.loading')}</div>`);
+    showSection(filesSection, `<div class="loading">${i18n.t('search.loading')}</div>`);
+    showSection(webSection, `<div class="loading">${i18n.t('search.loading')}</div>`);
     
     try {
       console.log('Appel searchFiles...');
@@ -52,7 +80,7 @@ searchInput.addEventListener('input', async (e) => {
       
     } catch (error) {
       console.error('Erreur recherche:', error);
-      showSection(appsSection, '<div class="no-results">Erreur</div>');
+      showSection(appsSection, `<div class="no-results">${i18n.t('search.error')}</div>`);
       hideSection(filesSection);
       hideSection(webSection);
     }
@@ -74,15 +102,9 @@ async function displayApps(apps, query) {
       const displayName = app.displayName || app.name || 'Sans nom';
       const icon = app.icon || '⚙️';
       const source = app.source || '';
-      
-      const sourceLabels = {
-        'steam': 'Steam',
-        'epic_games': 'Epic',
-        'windows_store': 'Store',
-        'registry': 'Installé',
-        'windows_system': 'Système'
-      };
-      const sourceBadge = sourceLabels[source] || '';
+
+      const sourceKey = `source.${source.replace('_', '')}`;
+      const sourceBadge = i18n.t(sourceKey) !== sourceKey ? i18n.t(sourceKey) : '';
       
       return `
         <div class="result-item app-item" data-global-index="${index}">
@@ -91,7 +113,7 @@ async function displayApps(apps, query) {
           </span>
           <div class="result-info">
             <div class="result-name">${escapeHtml(displayName)}</div>
-            <div class="result-path">${sourceBadge ? `${sourceBadge} • ` : ''}Application</div>
+            <div class="result-path">${sourceBadge ? `${sourceBadge} • ` : ''}${i18n.t('type.application')}</div>
           </div>
           <div class="result-action">
             <kbd>↵</kbd>
@@ -140,17 +162,7 @@ function displayFiles(files, query) {
       const icon = file.icon || '📄';
       const type = file.type || 'file';
       
-      const typeLabels = {
-        'document': 'Document',
-        'spreadsheet': 'Tableur',
-        'presentation': 'Présentation',
-        'image': 'Image',
-        'video': 'Vidéo',
-        'audio': 'Audio',
-        'code': 'Code',
-        'archive': 'Archive',
-        'file': 'Fichier'
-      };
+      const typeLabel = i18n.t(`type.${type}`);
       
       return `
         <div class="result-item file-item" data-global-index="${appsCount + index}">
@@ -162,7 +174,7 @@ function displayFiles(files, query) {
             <div class="result-path">${escapeHtml(directory)}</div>
           </div>
           <div class="result-meta">
-            <span class="result-type">${typeLabels[type] || type}</span>
+            <span class="result-type">${typeLabel}</span>
           </div>
         </div>
       `;
@@ -178,17 +190,29 @@ function displayFiles(files, query) {
 // Afficher suggestions web
 function displayWebSuggestions(query) {
   const webSearches = [
-    { name: `Rechercher "${query}" sur Google`, url: `https://www.google.com/search?q=${encodeURIComponent(query)}`, icon: '🔍' },
-    { name: `Rechercher "${query}" sur Wikipedia`, url: `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}`, icon: '📖' },
+    {
+      engine: i18n.t('web.google'),
+      url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+      icon: '🔍'
+    },
+    {
+      engine: i18n.t('web.wikipedia'),
+      url: `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}`,
+      icon: '📖'
+    },
   ];
   
   const html = webSearches
-    .map((search, index) => {
+    .map((search) => {
+      const searchText = i18n.t('web.searchOn', {
+        query: query,
+        engine: search.engine
+      });
       return `
         <div class="result-item web-item" data-url="${search.url}">
           <span class="result-icon">${search.icon}</span>
           <div class="result-info">
-            <div class="result-name">${escapeHtml(search.name)}</div>
+            <div class="result-name">${escapeHtml(searchText)}</div>
             <div class="result-path">${new URL(search.url).hostname}</div>
           </div>
           <div class="result-action">
@@ -328,5 +352,20 @@ window.addEventListener('focus', () => {
   allResults = [];
   searchInput.focus();
 });
+
+// Ecouter les changements de langue
+window.addEventListener('languageChanged', () => {
+  console.log('Langue changée:', i18n.getCurrentLanguage());
+
+  if(allResults.length > 0) {
+    const apps = allResults.filter(r => r.isApp);
+    const files = allResults.filter(r => !r.isApp);
+    const query = searchInput.value;
+
+    displayApps(apps, query);
+    displayFiles(files, query);
+    displayWebSuggestions(query);
+  }
+})
 
 console.log('Renderer.js chargé');

@@ -10,7 +10,7 @@
     <input 
       type="text" 
       id="searchInput" 
-      placeholder="Rechercher applications, fichiers, web..." 
+      data-i18n-placeholder="search.placeholder"
       autofocus
     >
     
@@ -18,7 +18,7 @@
     <div class="section" id="appsSection">
       <div class="section-header">
         <span class="section-icon">⚙️</span>
-        <h3>Applications</h3>
+        <h3 data-i18n="section.applications"></h3>
       </div>
       <div class="section-results" id="appResults"></div>
     </div>
@@ -27,7 +27,7 @@
     <div class="section" id="filesSection">
       <div class="section-header">
         <span class="section-icon">📄</span>
-        <h3>Fichiers</h3>
+        <h3 data-i18n="section.files"></h3>
       </div>
       <div class="section-results" id="fileResults"></div>
     </div>
@@ -36,12 +36,36 @@
     <div class="section" id="webSection">
       <div class="section-header">
         <span class="section-icon">🌐</span>
-        <h3>Recherche Web</h3>
+        <h3 data-i18n="section.web"></h3>
       </div>
       <div class="section-results" id="searchResults"></div>
     </div>
+
+    <!-- Bouton settings -->
+    <button id="settingsBtn" class="settings-btn" title="Settings">⚙️</button>
+
   </div>
+
+  <!-- Modal des paramètres -->
+    <div id="settingsModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 data-i18n="settings.title"></h2>
+          <button class="modal-close" id="closeSettings">x</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-item">
+            <label data-i18n="settings.language"></label>
+            <select id="languageSelect">
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
   
+  <script src="i18n.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
