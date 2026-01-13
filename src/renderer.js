@@ -9,6 +9,25 @@ const settingsBtn = document.getElementById('settingsBtn');
 const settingsModal = document.getElementById('settingsModal');
 const closeSettings = document.getElementById('closeSettings');
 const languageSelect = document.getElementById('languageSelect');
+const autoLaunchToggle = document.getElementById('autoLaunchToggle');
+
+// Charger le statut auto-launch
+async function loadAutoLaunchStatus() {
+  const status = await window.electronAPI.getAutoLaunchStatus();
+  autoLaunchToggle.checked = status;
+}
+
+// Changer le statut auto-launch
+autoLaunchToggle.addEventListener('change', async (e) => {
+  const result = await window.electronAPI.setAutoLaunch(e.target.checked);
+  if(!result.success) {
+    console.error('[AutoLaunch] Erreur:', result.error);
+    e.target.checked = !e.target.checked;
+  }
+})
+
+// Charger au démarrage
+loadAutoLaunchStatus();
 
 // Initialiser la langue
 i18n.updateUI();
