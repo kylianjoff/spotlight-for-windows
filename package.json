@@ -1,21 +1,79 @@
 {
   "name": "spotlight-for-windows",
-  "version": "1.0.0",
-  "description": "A sleek, modern search bar for Windows inspired by macOS Spotlight. Built with Electron for lightning-fast system-wide search.",
+  "productName": "Spotlight for Windows",
+  "version": "0.1.0",
+  "description": "A modern application launcher for Windows inspired by macOS Spotlight",
   "main": "main.js",
-  "scripts": {
-    "start": "electron .",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
   "author": "Kylian JULIA",
-  "license": "ISC",
-  "type": "commonjs",
+  "license": "MIT",
+  "homepage": "https://github.com/kylianjoff/spotlight-for-windows",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kylianjoff/spotlight-for-windows.git"
+  },
+  "scripts": {
+    "start": "chcp 65001 >nul 2>&1 && electron .",
+    "dev": "chcp 65001 >nul 2>&1 && electron . --enable-logging",
+    "build": "electron-builder build --win --publish never",
+    "build:publish": "electron-builder build --win --publish always",
+    "dist": "npm run build"
+  },
+  "build": {
+    "appId": "com.spotlight.windows",
+    "productName": "Spotlight for Windows",
+    "compression": "maximum",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "search.js",
+      "icon-extractor.js",
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "publisherName": "Spotlight for Windows",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Spotlight",
+      "runAfterFinish": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "license": "LICENSE",
+      "perMachine": false,
+      "allowElevation": true,
+      "include": "build/installer.nsh"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "kylianjoff",
+        "repo": "spotlight-for-windows"
+      }
+    ]
+  },
   "devDependencies": {
-    "electron": "^39.2.7"
+    "electron": "^39.2.7",
+    "electron-builder": "^24.9.1"
   },
   "dependencies": {
-    "fast-glob": "^3.3.3",
-    "fuse.js": "^7.1.0"
+    "fast-glob": "^3.3.2",
+    "fuse.js": "^7.0.0"
   }
 }
