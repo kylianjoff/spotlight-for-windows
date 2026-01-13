@@ -38,7 +38,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.ico",
@@ -70,7 +72,8 @@
   },
   "devDependencies": {
     "electron": "^39.2.7",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.9.1",
+    "electron-icon-builder": "^2.0.1"
   },
   "dependencies": {
     "fast-glob": "^3.3.2",
