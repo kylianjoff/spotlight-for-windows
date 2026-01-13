@@ -77,10 +77,11 @@ npm start
 - [x] Web search integration
 - [x] Fuzzy search with [fuse.js](https://fusejs.io/)
 - [ ] Custom themes
-- [ ] Settings panel
+- [x] Settings panel
 - [ ] File preview
 - [ ] Calculator functionality
 - [ ] Recent searches history
+- [x] Multi languages system
 
 ## ⚙️ Configuration
 
