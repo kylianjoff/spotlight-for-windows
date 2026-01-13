@@ -5,5 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchFiles: (query) => ipcRenderer.invoke('search-files', query),
   openFile: (filePath) => ipcRenderer.invoke('open-file', filePath),
   getAppIcon: (appPath) => ipcRenderer.invoke('get-app-icon', appPath),
-  openUrl: (url) => ipcRenderer.invoke('open-url', url)
+  openUrl: (url) => ipcRenderer.invoke('open-url', url),
+  getAutoLaunchStatus: () => ipcRenderer.invoke('get-autolaunch-status'),
+  setAutoLaunch: (enabled) => ipcRenderer.invoke('set-autolaunch', enabled)
 });
