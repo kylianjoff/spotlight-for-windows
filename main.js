@@ -34,7 +34,15 @@ function createWindow() {
   });
 }
 
+// Supprimer les logs des erreurs non critiques
+app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
+app.commandLine.appendSwitch('disable-site-isolation-trials');
+
 app.whenReady().then(() => {
+  if (process.env.NODE_ENV !== 'development') {
+    app.commandLine.appendSwitch('log-level', '3'); // Erreurs critiques seulement
+  }
+  
   createWindow();
 
   // Initialiser le searcher
