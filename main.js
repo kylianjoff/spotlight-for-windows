@@ -2,9 +2,85 @@ const { app, BrowserWindow, globalShortcut, ipcMain, shell, app: electronApp } =
 const path = require('path');
 const FileSearcher = require('./search.js');
 const { exec } = require('child_process');
+const iconExtractor = require('./icon-extractor.js');
+
+if(process.platform === 'win32') {
+  try {
+    exec('chcp 65001', { encoding: 'utf8' });
+  } catch(err) {
+    // Ignorer si échec
+  }
+}
 
 let mainWindow;
 let searcher;
+
+function enableAutoLaunch() {
+  if (process.platform !== 'win32') return;
+
+  const appPath = app.getPath('exe');
+  const appName = 'SpotlightForWindows';
+
+  const { exec } = require('child_process');
+
+  const command = `reg add "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "${appName}" /t REG_SZ /d "\\"${appPath}\\"" /f`;
+
+  exec(command, (error) => {
+    if(error) {
+      console.error('[AutoLaunch] Erreur activation:', error);
+    } else {
+      console.log('[AutoLaunch] Activé avec succès');
+    }
+  });
+}
+
+function disableAutoLaunch() {
+  if (process.platform !== 'win32') return;
+
+  const appName = 'SpotlightForWindows';
+  const { exec } = require('child_process');
+  
+  const command = `reg delete "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "${appName}" /f`;
+  
+  exec(command, (error) => {
+    if (error) {
+      console.error('[AutoLaunch] Erreur désactivation:', error);
+    } else {
+      console.log('[AutoLaunch] Désactivé avec succès');
+    }
+  });
+}
+
+function isAutoLaunchEnabled() {
+  return new Promise((resolve) => {
+    if(process.platform !== 'win32') {
+      resolve(false);
+      return;
+    }
+
+    const appName = 'SpotlightForWindows';
+    const { exec } = require('child_process');
+
+    const command = `reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" /v "${appName}"`;
+
+    exec(command, (error, stdout) => {
+      if(error) {
+        resolve(false);
+      } else {
+        resolve(stdout.includes(appName));
+      }
+    });
+  });
+}
+
+app.on('ready', async () => {
+  const autoLaunchStatus = await isAutoLaunchEnabled();
+
+  if(!autoLaunchStatus) {
+    console.log('[AutoLaunch] Première installation, activation du démarrage auto');
+    enableAutoLaunch();
+  }
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
