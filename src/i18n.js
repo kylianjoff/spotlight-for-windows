@@ -71,6 +71,7 @@ class I18n {
                 'settings.language': 'Language',
                 'settings.theme': 'Theme',
                 'settings.hotkey': 'Hotkey',
+                'settings.autolaunch': 'Launch at startup',
             },
 
             fr: {
@@ -118,6 +119,7 @@ class I18n {
                 'settings.language': 'Langue',
                 'settings.theme': 'Thème',
                 'settings.hotkey': 'Raccourci clavier',
+                'settings.autolaunch': 'Lancer au démarrage',
             }
         };
     }
