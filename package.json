@@ -73,7 +73,9 @@
   "devDependencies": {
     "electron": "^39.2.7",
     "electron-builder": "^24.9.1",
-    "electron-icon-builder": "^2.0.1"
+    "electron-builder-squirrel-windows": "^24.13.3",
+    "electron-icon-builder": "^2.0.1",
+    "rimraf": "^6.1.2"
   },
   "dependencies": {
     "fast-glob": "^3.3.2",
