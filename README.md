@@ -17,16 +17,7 @@ A sleek, modern search bar for Windows inspired by macOS Spotlight. Built with E
 
 ## 📸 Screenshots
 
-<!-- Add screenshots here when available -->
-```
-┌─────────────────────────────────────┐
-│  Search...                          │
-├─────────────────────────────────────┤
-│  📄 Document.pdf                    │
-│  🎵 Music.mp3                       │
-│  📁 Projects                        │
-└─────────────────────────────────────┘
-```
+![Spotlight for Windows Screenshot](./screenshot.png)
 
 ## 🚀 Quick Start
 
