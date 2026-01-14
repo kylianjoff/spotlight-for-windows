@@ -1,6 +1,6 @@
 class I18n {
     constructor() {
-        this.currentLanguage = this.getStoredLanguage() || this.detectLanguage();
+        this.currentLanguage = window.settings ? window.settings.get('language') : this.detectLanguage();
         this.translations = {};
         this.loadTranslations();
     }
@@ -20,7 +20,10 @@ class I18n {
 
     setLanguage(lang) {
         this.currentLanguage = lang;
-        localStorage.setItem('spotlight-language', lang);
+
+        if(window.settings) {
+            window.settings.set('language', lang);
+        }
         this.updateUI();
     }
 
@@ -166,4 +169,5 @@ class I18n {
     }
 }
 
-const i18n = new I18n();
+window.i18n = new I18n();
+console.log('[i18n] Langue détectée:', window.i18n.getCurrentLanguage());

@@ -13,18 +13,54 @@ const autoLaunchToggle = document.getElementById('autoLaunchToggle');
 
 // Charger le statut auto-launch
 async function loadAutoLaunchStatus() {
-  const status = await window.electronAPI.getAutoLaunchStatus();
-  autoLaunchToggle.checked = status;
+  console.log('[Renderer] Chargement statut auto-launch...');
+
+  try {
+    const realStatus = await window.electronAPI.getAutoLaunchStatus();
+    console.log('[Renderer] Statut réel auto-launch:', realStatus);
+
+    autoLaunchToggle.checked = realStatus;
+
+    window.settings.set('autoLaunch', realStatus);
+  } catch (error) {
+    console.error('[Renderer] Erreur chargement auto-launch:', error);
+
+    const savedStatus = window.settings.get('autoLaunch');
+    autoLaunchToggle.checked = savedStatus || false;
+  }
 }
 
 // Changer le statut auto-launch
 autoLaunchToggle.addEventListener('change', async (e) => {
-  const result = await window.electronAPI.setAutoLaunch(e.target.checked);
-  if(!result.success) {
-    console.error('[AutoLaunch] Erreur:', result.error);
-    e.target.checked = !e.target.checked;
+  const newStatus = e.target.checked;
+  console.log('[Renderer] Chargement auto-launch:', newStatus);
+
+  try {
+    const result = await window.electronAPI.setAutoLaunch(newStatus);
+
+    if (result.success) {
+      console.log('[renderer] Auto-launch modifié avec succès');
+
+      window.settings.set('autoLaunch', newStatus);
+
+      setTimeout(async () => {
+        const verifyStatus = await window.electronAPI.getAutoLaunchStatus();
+        if(verifyStatus !== newStatus) {
+          console.warn('[Renderer] Statut auto-launch incohérent, correction...');
+          autoLaunchToggle.checked = verifyStatus;
+          window.settings.set('autoLaunch', verifyStatus);
+        }
+      }, 500);
+    } else {
+      console.error('[Renderer] Erreur:', result.error);
+      autoLaunchToggle.checked = !newStatus;
+      alert('Erreur lors de la modification du démarrage automatique');
+    }
+  } catch (error) {
+    console.error('[Renderer] Erreur changement auto-launch:', error);
+    autoLaunchToggle.checked = !newStatus;
   }
-})
+});
 
 // Charger au démarrage
 loadAutoLaunchStatus();
@@ -39,7 +75,13 @@ languageSelect.addEventListener('change', (e) => {
 });
 
 // Ouvrir/fermer les paramètres
-settingsBtn.addEventListener('click', () => {
+settingsBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  console.log('[Renderer] Ouverture paramètres');
+
+  loadAutoLaunchStatus();
+
+  settingsModal.classList.add('show');
   settingsModal.style.display = 'flex';
 });
 
