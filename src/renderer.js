@@ -66,12 +66,18 @@ autoLaunchToggle.addEventListener('change', async (e) => {
 loadAutoLaunchStatus();
 
 // Initialiser la langue
-i18n.updateUI();
-languageSelect.value = i18n.getCurrentLanguage();
+if(typeof window.i18n !== 'undefined') {
+  console.log('[Renderer] i18n chargé, langue:', window.i18n.getCurrentLanguage());
+  window.i18n.updateUI();
+  languageSelect.value = window.i18n.getCurrentLanguage();
+}
 
 // Event listener pour changer la langue
 languageSelect.addEventListener('change', (e) => {
-  i18n.setLanguage(e.target.value);
+  const newLang = e.target.value;
+  console.log('[Renderer] Changement de langue:', newLang);
+  window.i18n.setLanguage(newLang);
+  console.log('[Renderer] Langue sauvegardée:', window.settings.get('language'));
 });
 
 // Ouvrir/fermer les paramètres
