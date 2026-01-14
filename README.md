@@ -7,6 +7,8 @@ A sleek, modern search bar for Windows inspired by macOS Spotlight. Built with E
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)
 ![Version](https://img.shields.io/badge/Version-v0.1.1-blue?logo=version)
 
+**[📥 Download Now](https://TON_USERNAME.github.io/spotlight-for-windows)** | [Documentation](#) | [Report Bug](https://github.com/TON_USERNAME/spotlight-for-windows/issues)
+
 ## ✨ Features
 
 - **🚀 Global Hotkey**: Instantly accessible with `Ctrl + Alt + Space`
