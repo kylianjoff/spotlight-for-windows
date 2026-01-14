@@ -8,7 +8,7 @@ A sleek, modern search bar for Windows inspired by macOS Spotlight. Built with E
 
 ## ✨ Features
 
-- **🚀 Global Hotkey**: Instantly accessible with `Windows + Alt`
+- **🚀 Global Hotkey**: Instantly accessible with `Ctrl + Alt + Space`
 - **⚡ Real-time Search**: Results update as you type
 - **⌨️ Keyboard Navigation**: Navigate through results with arrow keys
 - **🎨 Modern UI**: Beautiful, transparent interface with blur effects
