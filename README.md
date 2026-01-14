@@ -5,6 +5,7 @@ A sleek, modern search bar for Windows inspired by macOS Spotlight. Built with E
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Electron](https://img.shields.io/badge/Electron-39.2.7-47848F?logo=electron)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)
+![Version](https://img.shields.io/badge/Version-v0.1.0-blue?logo=version)
 
 ## ✨ Features
 
@@ -30,10 +31,10 @@ A sleek, modern search bar for Windows inspired by macOS Spotlight. Built with E
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/mon-spotlight.git
+git clone https://github.com/kylianjoff/spotlight-for-windows.git
 
 # Navigate to project directory
-cd mon-spotlight
+cd spotlight-for-windows
 
 # Install dependencies
 npm install
@@ -45,7 +46,7 @@ npm start
 ## 🎮 Usage
 
 1. **Launch the app**: Run `npm start`
-2. **Open search bar**: Press `Windows + Alt` anywhere in your system
+2. **Open search bar**: Press `Ctrl + Alt + Space` anywhere in your system
 3. **Type to search**: Start typing to see real-time results
 4. **Navigate**: Use `↑` `↓` arrow keys to move through results
 5. **Select**: Press `Enter` to open the selected item
@@ -68,18 +69,20 @@ npm start
 - [x] Web search integration
 - [x] Fuzzy search with [fuse.js](https://fusejs.io/)
 - [ ] Custom themes
+- [ ] Custom hotkey configuration
 - [x] Settings panel
 - [ ] File preview
 - [ ] Calculator functionality
 - [ ] Recent searches history
-- [x] Multi languages system
+- [x] Multi languages system (only english and french)
+- [ ] More language support
 
 ## ⚙️ Configuration
 
 The application can be configured by modifying `main.js`:
 ```javascript
 // Change the global hotkey
-globalShortcut.register('Alt+Space', () => { ... })
+globalShortcut.register('CommandOrControl+Alt+Space', () => { ... })
 
 // Adjust window size
 width: 600,
@@ -109,8 +112,9 @@ mon-spotlight/
 
 ## 🐛 Known Issues
 
-- [ ] Window positioning on multi-monitor setups needs refinement
-- [ ] Search functionality currently returns mock data
+- Icon extraction may take a few seconds for 100+ apps on first launch
+- Some Microsoft Store apps may not display icons due to Windows permissions
+- Network service error in console (non-critical, does not affect functionality)
 
 ## 💡 Inspiration
 
