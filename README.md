@@ -5,7 +5,7 @@ A sleek, modern search bar for Windows inspired by macOS Spotlight. Built with E
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Electron](https://img.shields.io/badge/Electron-39.2.7-47848F?logo=electron)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)
-![Version](https://img.shields.io/badge/Version-v0.1.1-blue?logo=version)
+![Version](https://img.shields.io/badge/Version-v0.1.2-blue?logo=version)
 
 **[📥 Download Now](https://TON_USERNAME.github.io/spotlight-for-windows)** | [Documentation](#) | [Report Bug](https://github.com/TON_USERNAME/spotlight-for-windows/issues)
 
