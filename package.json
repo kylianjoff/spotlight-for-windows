@@ -1,7 +1,7 @@
 {
   "name": "spotlight-for-windows",
   "productName": "Spotlight for Windows",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A modern application launcher for Windows inspired by macOS Spotlight",
   "main": "main.js",
   "author": "Kylian JULIA",
