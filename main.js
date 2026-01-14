@@ -65,9 +65,12 @@ function isAutoLaunchEnabled() {
 
     exec(command, (error, stdout) => {
       if(error) {
+        console.log('[AutoLaunch] Non activé dans le registre');
         resolve(false);
       } else {
-        resolve(stdout.includes(appName));
+        const isEnabled = stdout.includes(appName);
+        console.log('[AutoLaunch] Statut registre:', isEnabled);
+        resolve(isEnabled);
       }
     });
   });
