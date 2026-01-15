@@ -3,6 +3,7 @@ const path = require('path');
 const FileSearcher = require('./search.js');
 const { exec } = require('child_process');
 const iconExtractor = require('./icon-extractor.js');
+const UpdateManager = require('./updater.js');
 
 if(process.platform === 'win32') {
   try {
@@ -14,6 +15,7 @@ if(process.platform === 'win32') {
 
 let mainWindow;
 let searcher;
+let updateManager;
 
 function enableAutoLaunch() {
   if (process.platform !== 'win32') return;
@@ -132,6 +134,18 @@ app.whenReady().then(() => {
     console.log('Index prêt !');
   });
 
+  // Initialiser le système de mise à jour
+  updateManager = new UpdateManager(mainWindow);
+
+  // Vérifier les mises à jours 30 secondes après le démarrage
+  setTimeout(() => {
+    if(!app.isPackaged) {
+      console.log('[Updater] Mode développement, vérification désactivée');
+      return;
+    }
+    updateManager.checkForUpdates();
+  }, 30000);
+
   // Enregistrer le raccourci global : Windows+Alt
   const ret = globalShortcut.register('CommandOrControl+Alt+Space', () => {
     if (mainWindow.isVisible()) {
@@ -144,6 +158,57 @@ app.whenReady().then(() => {
 
   if (!ret) {
     console.log('Échec enregistrement raccourci');
+  }
+});
+
+// Vérifier les mises à jour manuellement
+ipcMain.handle('check-for-updates', async() => {
+  if(!updateManager) {
+    return { success: false, error: 'Update manager not initialized' };
+  }
+
+  try {
+    await updateManager.checkForUpdates();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message};
+  }
+});
+
+// Obtenir le statut de mise à jour
+ipcMain.handle('get-update-status', () => {
+  if(!updateManager) {
+    return { updateAvailable: false };
+  }
+
+  return updateManager.getStatus();
+});
+
+// Télécharger la mise à jour
+ipcMain.handle('download-update', async () => {
+  if (!ipdateManager) {
+    return { success: false, error: 'Update manager not initialized' };
+  }
+
+  try {
+    await updateManager.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Installer et redémarrer
+ipcMain.handle('install-update', () => {
+  if(!updateManager) {
+    return { success: false, error: 'Update manager not initialized' };
+  }
+
+  try {
+    updateManager.quitAndInstall();
+    return { success: true };
+  } catch(error) {
+    return { success: false, error: error.message };
   }
 });
 
