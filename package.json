@@ -78,6 +78,7 @@
     "rimraf": "^6.1.2"
   },
   "dependencies": {
+    "electron-updater": "^6.7.3",
     "fast-glob": "^3.3.2",
     "fuse.js": "^7.0.0"
   }
