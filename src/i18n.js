@@ -75,6 +75,16 @@ class I18n {
                 'settings.theme': 'Theme',
                 'settings.hotkey': 'Hotkey',
                 'settings.autolaunch': 'Launch at startup',
+
+                // Mises à jour
+                'settings.updateAvailable': 'Update Available',
+                'settings.downloadUpdate': 'Download',
+                'settings.installUpdate': 'Install and Restart',
+                'settings.checkUpdates': 'Check for updates',
+                'settings.checkNow': 'Check Now',
+                'settings.upToDate': 'You\'re up to date!',
+                'settings.checkingUpdates': 'Checking for updates...',
+                'settings.updateError': 'Error checking for updates',
             },
 
             fr: {
@@ -123,6 +133,16 @@ class I18n {
                 'settings.theme': 'Thème',
                 'settings.hotkey': 'Raccourci clavier',
                 'settings.autolaunch': 'Lancer au démarrage',
+
+                // Mises à jour
+                'settings.updateAvailable': 'Mise à jour disponible',
+                'settings.downloadUpdate': 'Télécharger',
+                'settings.installUpdates': 'Installer et redémarrer',
+                'settings.checkUpdates': 'Vérifier les mises à jour',
+                'settings.checkNow': 'Vérifier maintenant',
+                'settings.upToDate': 'Vous êtes à jour !',
+                'settings.checkingUpdates': 'Vérification en cours...',
+                'settings.updateError': 'Erreur lors de la vérification',
             }
         };
     }

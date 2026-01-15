@@ -41,8 +41,9 @@
       <div class="section-results" id="searchResults"></div>
     </div>
 
-    <!-- Bouton settings -->
+    <!-- Bouton settings et indicateur de mise à jour -->
     <button id="settingsBtn" class="settings-btn" title="Settings">⚙️</button>
+    <span id="updateBadge" class="update-badge" style="display: none;">1</span>
 
   </div>
 
@@ -54,6 +55,44 @@
           <button class="modal-close" id="closeSettings">x</button>
         </div>
         <div class="modal-body">
+
+          <!-- Section Mise à jour -->
+          <div class="setting-section" id="updateSection" style="display: none;">
+            <div class="setting-item update-item">
+              <div class="update-header">
+                <span class="update-icon">🎉</span>
+                <div class="update-info">
+                  <h3 data-i18n="settings.updateAvailable"></h3>
+                  <p id="updateVersionText" class="update-version">Version <span id="newVersion"></span> disponible</p>
+                </div>
+              </div>
+              <div class="update-actions">
+                <button id="downloadUpdateBtn" class="update-btn primary">
+                  <span data-i18n="settings.downloadUpdate"></span>
+                </button>
+                <button id="installUpdateBtn" class="update-btn success" style="display: none;">
+                  <span data-i18n="settings.installUpdate"></span>
+                </button>
+              </div>
+              <div id="downloadProgress" class="download-progress" style="display: none;">
+                <div class="progress-bar">
+                  <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <p id="progressText" class="progress-text">Téléchargement: 0%</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vérification manuelle -->
+          <div class="setting-item">
+            <label data-i18n="settings.checkUpdates">Vérifier les mises à jour</label>
+            <button id="checkUpdatesBtn" class="check-updates-btn">
+              <span data-i18n="settings.checkNow"></span>
+            </button>
+            <p id="updateStatus" class="update-status"></p>
+          </div>
+
+          <!-- Langues -->
           <div class="setting-item">
             <label data-i18n="settings.language"></label>
             <select id="languageSelect">
@@ -62,6 +101,7 @@
             </select>
           </div>
 
+          <!-- Auto-launch -->
           <div class="setting-item">
             <label data-i18n="settings.autolaunch"></label>
             <label class="toggle-switch">

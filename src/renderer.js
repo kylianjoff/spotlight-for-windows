@@ -10,6 +10,122 @@ const settingsModal = document.getElementById('settingsModal');
 const closeSettings = document.getElementById('closeSettings');
 const languageSelect = document.getElementById('languageSelect');
 const autoLaunchToggle = document.getElementById('autoLaunchToggle');
+const updateBadge = document.getElementById('updateBadge');
+const updateSection = document.getElementById('updateSection');
+const newVersionSpan = document.getElementById('newVersion');
+const downloadUpdateBtn = document.getElementById('downloadUpdateBtn');
+const installUpdateBtn = document.getElementById('installUpdateBtn');
+const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
+const updateStatus = document.getElemenntById('updateStatus');
+const downloadProgress = document.getElementByIdd('downloadProgress');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+
+let updateAvailable = false;
+
+window.eletronAPI.onUpdateAvailable((data) => {
+  console.log('[Renderer] Mise à jour disponible:', data.version);
+  updateAvailable = true;
+
+  updateBadge.style.display = 'block';
+  updateBadge.classList.add('pulse');
+
+  newVersionSpan.textContent = data.version;
+  updateSection.style.display = 'block';
+  downloadUpdateBtn.style.display = 'block';
+  installUpdateBtn.style.display = 'none';
+  downloadProgress.style.display = 'none';
+});
+
+window.electronAPI.onUpdateNotAvailable(() => {
+  console.log('[Renderer] Aucune mise à jour disponible');
+  updateAvailable = false;
+  updateBadge.style.display = 'none';
+  updateSection.style.display = 'none';
+});
+
+window.electronAPI.onDownloadProgress((data) => {
+  console.log('[Renderer] Téléchargement:', data.percent + '%');
+  downloadProgress.style.display = 'block';
+  progressFill.style.width = data.percent + '%';
+  progressText.textContent = `${window.i18n.t('settings.downloadUpdate')}: ${data.percent}%`;
+});
+
+window.electronAPI.onUpdateDownloaded((data) => {
+  console.log('[Renderer] Mise à jour téléchargée:', data.version);
+  downloadUpdateBtn.style.display = 'none';
+  installUpdateBtn.style.display = 'block';
+  downloadProgress.style.display = 'none';
+});
+
+window.electronAPI.onUpdateError((error) => {
+  console.error('[Renderer] Erreur mise à jour:', error);
+  updateStatus.textContent = window.i18n.t('settings.updateError');
+  updateStatus.style.color = '#ff6b6b';
+});
+
+downloadUpdateBtn.addEventListener('click', async () => {
+  console.log('[Renderer] Début téléchargement mise à jour');
+  downloadUpdateBtn.disabled = true;
+  downloadUpdateBtn.textContent = window.i18n.t('settings.checkingUpdates');
+
+  const result = await window.electronAPI.downloadUpdate();
+
+  if(!result.success) {
+    console.error('[Renderer] Erreur téléchargement:', result.error);
+    alert('Erreur lors du téléchargement: ' + result.error);
+    downloadUpdateBtn.disabled = false;
+    downloadUpdateBtn.innerHTML = `<span data-i18n="settings.downloadUpdate"></span>`;
+  }
+});
+
+// Installer et redémrrer
+installUpdateBtn.addEventListener('click', async () => {
+  console.log('[Renderer] Installation de la mise à jour');
+  const result = await window.electronAPI.installUpdate();
+
+  if(!result.success) {
+    console.error('[Renderer] Erreur installation:', result.error);
+    alert('Erreur lors de l\'installation: ' + result.error);
+  }
+});
+
+// Vérifier manuellement
+checkUpdatesBtn.addEventListener('click', async () => {
+  console.log('[Renderer] Vérification manuelle des mises àà jour');
+  checkUpdatesBtn.disabled = true;
+  updateStatus.textContent = window.i18n.t('settings.checkingUpdates');
+  updateStatus.style.color = '#667eea';
+
+  const result = await window.electronAPI.checkForUpdates();
+
+  setTimeout(async () => {
+    checkUpdatesBtn.disabled = false;
+
+    const status = await window.electronAPI.getUpdateStatus();
+
+    if(status.updateAvailable) {
+      updateStatus.textContent = `Nouvelle version ${status.updateInfo.version} disponible !`;
+      updateStatus.style.color = '#51cf66';
+    } else {
+      updateStatus.textContent = window.i18n.t('settings.upToDate');
+      updateStatus.style.color = '#51cf66';
+    }
+  }, 2000);
+});
+
+// Vérifier le statut au chargement
+async function checkUpdateStatus() {
+  const status = await window.electronAPI.getUpdateStatus();
+
+  if(status.updateAvailable) {
+    updateBadge.style.display = 'block';
+    newVersionSpan.textContent = status.updateInfo.version;
+    updateSection.style.display = 'block';
+  }
+}
+
+checkUpdateStatus();
 
 // Charger le statut auto-launch
 async function loadAutoLaunchStatus() {
