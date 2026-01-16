@@ -22,8 +22,8 @@ function createSplashWindow() {
   splashWindow = new BrowserWindow({
     width: 400,
     height: 500,
-    frame: false,
-    transparent: true,
+    frame: true,
+    transparent: false,
     alwaysOnTop: true,
     resizable: false,
     webPreferences: {
@@ -32,12 +32,24 @@ function createSplashWindow() {
     }
   });
 
-  splashWindow.loadFile('src/splash.html');
+  // ⭐ Change le chemin avec path.join
+  const splashPath = path.join(__dirname, 'src', 'splash.html');
+  console.log('[SPLASH] Chargement de:', splashPath);
+  
+  splashWindow.loadFile(splashPath);
   splashWindow.center();
+  
+  //splashWindow.webContents.openDevTools({ mode: 'detach' });
 
   splashWindow.webContents.on('did-finish-load', () => {
-    splashWindow.webContents.send('version', app.getVersion());
+    console.log('[SPLASH] Chargé avec succès');
   });
+  
+  splashWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[SPLASH] ERREUR chargement:', errorCode, errorDescription);
+  });
+  
+  console.log('[SPLASH] Fenêtre créée');
 }
 
 function enableAutoLaunch() {
@@ -163,34 +175,26 @@ app.commandLine.appendSwitch('disable-site-isolation-trials');
 
 app.whenReady().then(async () => {
   if (process.env.NODE_ENV !== 'development') {
-    app.commandLine.appendSwitch('log-level', '3'); // Erreurs critiques seulement
+    app.commandLine.appendSwitch('log-level', '3');
   }
 
   createSplashWindow();
-  
   createWindow();
 
   // Initialiser le searcher
   searcher = new FileSearcher();
 
-  // Ecouter les événements de progression
-  search.on('progress', (data) => {
-    if(splashWindow && !splashWindow.isDestroyed()) {
-      splashWindow.webContents.send('indexing-progress', data);
-    }
-  });
-
-  const indexingPromise = searcher.buildIndex();
-
-  // Lancer l'indexation en arrière-plan
-  searcher.buildIndex().then(() => {
-    console.log('Index prêt !');
+  // Lancer l'indexation UNE SEULE FOIS
+  const indexingPromise = searcher.buildIndex().then(() => {
+    console.log('[OK] Index prêt!');
+  }).catch((error) => {
+    console.error('[ERROR] Indexation:', error);
   });
 
   // Initialiser le système de mise à jour
   updateManager = new UpdateManager(mainWindow);
 
-  // Vérifier les mises à jours 30 secondes après le démarrage
+  // Vérifier les mises à jour 30 secondes après le démarrage
   setTimeout(() => {
     if(!app.isPackaged) {
       console.log('[Updater] Mode développement, vérification désactivée');
@@ -199,7 +203,7 @@ app.whenReady().then(async () => {
     updateManager.checkForUpdates();
   }, 30000);
 
-  // Enregistrer le raccourci global : Windows+Alt
+  // Enregistrer le raccourci global
   const ret = globalShortcut.register('CommandOrControl+Alt+Space', () => {
     if (mainWindow.isVisible()) {
       mainWindow.hide();
@@ -210,11 +214,20 @@ app.whenReady().then(async () => {
   });
 
   if (!ret) {
-    console.log('Échec enregistrement raccourci');
+    console.log('[ERROR] Échec enregistrement raccourci');
   }
 
+  console.log('[OK] Raccourci enregistré');
+
+  // Attendre l'indexation (min 2 secondes, max 10 secondes)
   const minDisplayTime = new Promise(resolve => setTimeout(resolve, 2000));
-  await Promise.all([indexingPromise, minDisplayTime]);
+  const maxDisplayTime = new Promise(resolve => setTimeout(resolve, 10000));
+  
+  await Promise.race([
+    Promise.all([indexingPromise, minDisplayTime]),
+    maxDisplayTime
+  ]);
+  
   closeSplashAndShowApp();
 });
 
