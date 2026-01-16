@@ -14,8 +14,31 @@ if(process.platform === 'win32') {
 }
 
 let mainWindow;
+let splashWindow;
 let searcher;
 let updateManager;
+
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 400,
+    height: 500,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  splashWindow.loadFile('src/splash.html');
+  splashWindow.center();
+
+  splashWindow.webContents.on('did-finish-load', () => {
+    splashWindow.webContents.send('version', app.getVersion());
+  });
+}
 
 function enableAutoLaunch() {
   if (process.platform !== 'win32') return;
@@ -113,16 +136,37 @@ function createWindow() {
   mainWindow.on('blur', () => {
     mainWindow.hide();
   });
+
+  // Quand la fenêtre est prête, fermer le splash
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[OK] Fenêtre principale chargée');
+  });
+}
+
+// Fermer le splash et afficher l'app
+
+function closeSplashAndShowApp() {
+  console.log('[OK] Fermeture du splash screen');
+
+  if(splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.close();
+    splashWindow = null;
+  }
+
+  // La fenêtre principale reste cachée jusqu'à Ctrl+Alt+Space
+  console.log('[OK] Application prête (Ctrl+Alt+Space pour ouvrir)');
 }
 
 // Supprimer les logs des erreurs non critiques
 app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
 app.commandLine.appendSwitch('disable-site-isolation-trials');
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (process.env.NODE_ENV !== 'development') {
     app.commandLine.appendSwitch('log-level', '3'); // Erreurs critiques seulement
   }
+
+  createSplashWindow();
   
   createWindow();
 
@@ -159,6 +203,10 @@ app.whenReady().then(() => {
   if (!ret) {
     console.log('Échec enregistrement raccourci');
   }
+
+  const minDisplayTime = new Promise(resolve => setTimeout(resolve, 2000));
+  await Promise.all([indexingPromise, minDisplayTime]);
+  closeSplashAndShowApp();
 });
 
 // Vérifier les mises à jour manuellement
