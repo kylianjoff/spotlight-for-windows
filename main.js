@@ -173,6 +173,15 @@ app.whenReady().then(async () => {
   // Initialiser le searcher
   searcher = new FileSearcher();
 
+  // Ecouter les événements de progression
+  search.on('progress', (data) => {
+    if(splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.webContents.send('indexing-progress', data);
+    }
+  });
+
+  const indexingPromise = searcher.buildIndex();
+
   // Lancer l'indexation en arrière-plan
   searcher.buildIndex().then(() => {
     console.log('Index prêt !');
