@@ -4,9 +4,11 @@ const os = require('os');
 const Fuse = require('fuse.js');
 const { execSync } = require('child_process');
 const IconExtractor = require('./icon-extractor.js');
+const EventEmitter = require('events');
 
 class FileSearcher {
   constructor() {
+    super();
     this.index = [];
     this.appsIndex = [];
     this.fuse = null;
@@ -547,14 +549,24 @@ class FileSearcher {
 
     this.index = [];
 
+    this.emit('progress', { step: 'applications', message: 'Scanning applications...' });
+    this.appsIndex = this.scanApplications();
+
+    this.emit('progress', { step: 'icons', message: 'Extracting icons...'});
+
+    this.extractIconsInBackground();
+
     for (const { path: searchPath, depth } of searchPaths) {
       if (!fs.existsSync(searchPath)) continue;
       
+      this.emit('progress', { step: 'files', message: `Scanning ${path.basename(searchPath)}...` });
       console.log(`📂 Scan de ${searchPath}...`);
       const files = this.scanDirectory(searchPath, 0, depth);
       console.log(`  ✓ ${files.length} fichiers`);
       this.index.push(...files);
     }
+
+    this.emit('progress', { step: 'index', message: 'Building search index...' });
 
     // Configurer Fuse.js...
     this.appsFuse = new Fuse(this.appsIndex, {
