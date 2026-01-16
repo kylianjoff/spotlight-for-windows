@@ -6,7 +6,7 @@ const { execSync } = require('child_process');
 const IconExtractor = require('./icon-extractor.js');
 const EventEmitter = require('events');
 
-class FileSearcher {
+class FileSearcher extends EventEmitter {
   constructor() {
     super();
     this.index = [];
