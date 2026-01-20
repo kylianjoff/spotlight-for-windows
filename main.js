@@ -22,8 +22,8 @@ function createSplashWindow() {
   splashWindow = new BrowserWindow({
     width: 400,
     height: 500,
-    frame: true,
-    transparent: false,
+    frame: false,
+    transparent: true,
     alwaysOnTop: true,
     resizable: false,
     webPreferences: {
@@ -32,8 +32,8 @@ function createSplashWindow() {
     }
   });
 
-  // ⭐ Change le chemin avec path.join
   const splashPath = path.join(__dirname, 'src', 'splash.html');
+  console.log('[SPLASH] Création de la fenêtre...');
   console.log('[SPLASH] Chargement de:', splashPath);
   
   splashWindow.loadFile(splashPath);
@@ -41,15 +41,12 @@ function createSplashWindow() {
   
   //splashWindow.webContents.openDevTools({ mode: 'detach' });
 
-  splashWindow.webContents.on('did-finish-load', () => {
-    console.log('[SPLASH] Chargé avec succès');
-  });
-  
+  // Logger les événements pour debug
   splashWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-    console.error('[SPLASH] ERREUR chargement:', errorCode, errorDescription);
+    console.error('[SPLASH] ❌ ERREUR chargement:', errorCode, errorDescription);
   });
   
-  console.log('[SPLASH] Fenêtre créée');
+  // Le 'did-finish-load' est écouté dans app.whenReady() avec .once()
 }
 
 function enableAutoLaunch() {
@@ -113,14 +110,8 @@ function isAutoLaunchEnabled() {
   });
 }
 
-app.on('ready', async () => {
-  const autoLaunchStatus = await isAutoLaunchEnabled();
-
-  if(!autoLaunchStatus) {
-    console.log('[AutoLaunch] Première installation, activation du démarrage auto');
-    enableAutoLaunch();
-  }
-});
+// ⚠️ NE PLUS UTILISER app.on('ready') car ça bloque l'affichage du splash
+// La vérification auto-launch est maintenant dans app.whenReady() APRÈS le splash
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -178,32 +169,27 @@ app.whenReady().then(async () => {
     app.commandLine.appendSwitch('log-level', '3');
   }
 
+  // 1. CRÉER LE SPLASH
   createSplashWindow();
-  createWindow();
-
-  // Initialiser le searcher
-  searcher = new FileSearcher();
-
-  // Lancer l'indexation UNE SEULE FOIS
-  const indexingPromise = searcher.buildIndex().then(() => {
-    console.log('[OK] Index prêt!');
-  }).catch((error) => {
-    console.error('[ERROR] Indexation:', error);
+  
+  // 2. ⭐ ATTENDRE QUE LE SPLASH SOIT VRAIMENT AFFICHÉ
+  await new Promise((resolve) => {
+    splashWindow.webContents.once('did-finish-load', () => {
+      console.log('[SPLASH] Contenu chargé, affichage confirmé');
+      // Attendre encore un peu pour être SÛR qu'il est visible
+      setTimeout(resolve, 300);
+    });
   });
 
-  // Initialiser le système de mise à jour
-  updateManager = new UpdateManager(mainWindow);
+  console.log('[SPLASH] ✅ Splash visible, début des opérations lourdes...');
 
-  // Vérifier les mises à jour 30 secondes après le démarrage
-  setTimeout(() => {
-    if(!app.isPackaged) {
-      console.log('[Updater] Mode développement, vérification désactivée');
-      return;
-    }
-    updateManager.checkForUpdates();
-  }, 30000);
+  // 3. CRÉER LA FENÊTRE PRINCIPALE (cachée)
+  createWindow();
 
-  // Enregistrer le raccourci global
+  // 4. INITIALISER LE SEARCHER
+  searcher = new FileSearcher();
+
+  // 5. ENREGISTRER LE RACCOURCI GLOBAL
   const ret = globalShortcut.register('CommandOrControl+Alt+Space', () => {
     if (mainWindow.isVisible()) {
       mainWindow.hide();
@@ -219,7 +205,27 @@ app.whenReady().then(async () => {
 
   console.log('[OK] Raccourci enregistré');
 
-  // Attendre l'indexation (min 2 secondes, max 10 secondes)
+  // 6. INITIALISER LE SYSTÈME DE MISE À JOUR
+  updateManager = new UpdateManager(mainWindow);
+
+  // Vérifier les mises à jour 30 secondes après le démarrage
+  setTimeout(() => {
+    if(!app.isPackaged) {
+      console.log('[Updater] Mode développement, vérification désactivée');
+      return;
+    }
+    updateManager.checkForUpdates();
+  }, 30000);
+
+  // 7. ⭐ MAINTENANT ON PEUT LANCER L'INDEXATION (le splash est visible)
+  console.log('[INDEXATION] 🔍 Début du scan...');
+  const indexingPromise = searcher.buildIndex().then(() => {
+    console.log('[OK] Index prêt!');
+  }).catch((error) => {
+    console.error('[ERROR] Indexation:', error);
+  });
+
+  // 8. ATTENDRE L'INDEXATION (min 2 secondes, max 10 secondes)
   const minDisplayTime = new Promise(resolve => setTimeout(resolve, 2000));
   const maxDisplayTime = new Promise(resolve => setTimeout(resolve, 10000));
   
@@ -229,6 +235,15 @@ app.whenReady().then(async () => {
   ]);
   
   closeSplashAndShowApp();
+
+  // 9. VÉRIFIER ET ACTIVER AUTO-LAUNCH (en arrière-plan, après le splash)
+  setTimeout(async () => {
+    const autoLaunchStatus = await isAutoLaunchEnabled();
+    if(!autoLaunchStatus) {
+      console.log('[AutoLaunch] Première installation, activation du démarrage auto');
+      enableAutoLaunch();
+    }
+  }, 500);
 });
 
 // Vérifier les mises à jour manuellement
@@ -256,7 +271,7 @@ ipcMain.handle('get-update-status', () => {
 
 // Télécharger la mise à jour
 ipcMain.handle('download-update', async () => {
-  if (!ipdateManager) {
+  if (!updateManager) {
     return { success: false, error: 'Update manager not initialized' };
   }
 
