@@ -109,6 +109,35 @@
               <span class="toggle-slider"></span>
             </label>
           </div>
+
+          <!-- Quit Application -->
+          <div class="setting-item quit-section">
+            <label data-i18n="settings.quitApp"></label>
+            <button id="quitAppBtn" class="quit-btn">
+              <span data-i18n="settings.quit"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de confirmation Quit -->
+    <div id="quitModal" class="modal" style="display: none;">
+      <div class="modal-content quit-modal-content">
+        <div class="modal-header">
+          <h2 data-i18n="settings.confirmQuit"></h2>
+          <button id="closeQuitModal" class="modal-close">x</button>
+        </div>
+        <div class="modal-body">
+          <p data-i18n="settings.quitMessage"></p>
+          <div class="quit-actions">
+            <button id="cancelQuitBtn" class="cancel-btn">
+              <span data-i18n="settings.cancel"></span>
+            </button>
+            <button id="confirmQuitBtn" class="quit-btn">
+              <span data-i18n="settings.confirmQuitBtn"></span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -24,7 +24,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', () => callback()),
   onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (_, data) => callback(data)),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (_, data) => callback(data)),
-  onUpdateError: (callback) => ipcRenderer.on('update-error', (_, error) => callback(error))
+  onUpdateError: (callback) => ipcRenderer.on('update-error', (_, error) => callback(error)),
+
+  // Quit application
+  quitApp: () => ipcRenderer.invoke('quit-app')
 });
 
 console.log('[Preload] ✅ electronAPI exposé');

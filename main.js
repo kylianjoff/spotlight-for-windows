@@ -26,7 +26,7 @@ function createSplashWindow() {
     transparent: true,
     alwaysOnTop: true,
     resizable: false,
-    icon: path.join(__dirname, 'build', 'icon.ico'),
+    icon: path.join(__dirname, 'assets', 'icon.png'), // ✅ Icône de l'app
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true
@@ -417,4 +417,13 @@ ipcMain.handle('set-autolaunch', async (event, enabled) => {
     console.error('[AutoLaunch] Erreur set:', error);
     return { success: false, error: error.message };
   }
+});
+
+// ========================================
+// HANDLER QUIT APP
+// ========================================
+
+ipcMain.handle('quit-app', () => {
+  console.log('[QUIT] Fermeture de l\'application demandée');
+  app.quit();
 });

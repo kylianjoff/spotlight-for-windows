@@ -613,3 +613,91 @@ input:checked + .toggle-slider:hover {
   text-align: center;
   color: rgba(255, 255, 255, 0.7);
 }
+
+/* ========================================
+   QUIT APPLICATION
+   ======================================== */
+
+.quit-section {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid rgba(255, 100, 100, 0.3);
+}
+
+.quit-btn {
+  width: 100%;
+  padding: 12px;
+  background: rgba(255, 107, 107, 0.15);
+  border: 2px solid rgba(255, 107, 107, 0.4);
+  border-radius: 8px;
+  color: #ff6b6b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quit-btn:hover {
+  background: rgba(255, 107, 107, 0.25);
+  border-color: #ff6b6b;
+  color: #ff5252;
+}
+
+/* Modal de confirmation Quit */
+.quit-modal-content {
+  max-width: 420px;
+}
+
+.quit-modal-content .modal-body {
+  padding: 24px;
+}
+
+.quit-modal-content .modal-body p {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.quit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  justify-content: flex-end;
+}
+
+.cancel-btn {
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.confirm-quit-btn {
+  padding: 12px 24px;
+  background: #ff6b6b;
+  border: 2px solid #ff6b6b;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirm-quit-btn:hover {
+  background: #ff5252;
+  border-color: #ff5252;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}

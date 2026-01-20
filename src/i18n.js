@@ -85,6 +85,14 @@ class I18n {
                 'settings.upToDate': 'You\'re up to date!',
                 'settings.checkingUpdates': 'Checking for updates...',
                 'settings.updateError': 'Error checking for updates',
+
+                // Quit
+                'settings.quitApp': 'Quit Application',
+                'settings.quit': 'Quit',
+                'settings.confirmQuit': 'Confirm Quit',
+                'settings.quitMessage': 'Are you sure you want to quit Spotlight for Windows ? You can relaunch it like a basic application.',
+                'settings.cancel': 'Cancel',
+                'settings.confirmQuitBtn': 'Quit Application',
             },
 
             fr: {
@@ -143,6 +151,14 @@ class I18n {
                 'settings.upToDate': 'Vous êtes à jour !',
                 'settings.checkingUpdates': 'Vérification en cours...',
                 'settings.updateError': 'Erreur lors de la vérification',
+
+                // Quit
+                'settings.quitApp': 'Quitter l\'application',
+                'settings.quit': 'Quitter',
+                'settings.confirmQuit': 'Confirmer la fermeture',
+                'settings.quitMessage': 'Voulez-vous vraiment quitter Spotlight for Windws ? Vous pourrez le relancer comme une application basique.',
+                'settings.cancel': 'Annuler',
+                'settings.confirmQuitBtn': 'Quitter l\'application',
             }
         };
     }

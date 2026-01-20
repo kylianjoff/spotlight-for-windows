@@ -21,6 +21,13 @@ const downloadProgress = document.getElementById('downloadProgress');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 
+// Éléments du modal Quit
+const quitAppBtn = document.getElementById('quitAppBtn');
+const quitModal = document.getElementById('quitModal');
+const closeQuitModal = document.getElementById('closeQuitModal');
+const cancelQuitBtn = document.getElementById('cancelQuitBtn');
+const confirmQuitBtn = document.getElementById('confirmQuitBtn');
+
 let updateAvailable = false;
 
 window.electronAPI.onUpdateAvailable((data) => {
@@ -516,6 +523,40 @@ window.addEventListener('languageChanged', () => {
     displayApps(apps, query);
     displayFiles(files, query);
     displayWebSuggestions(query);
+  }
+});
+
+// ========================================
+// GESTION DU BOUTON QUIT
+// ========================================
+
+// Ouvrir le modal de confirmation
+quitAppBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  console.log('[Renderer] Ouverture modal Quit');
+  quitModal.style.display = 'flex';
+});
+
+// Fermer le modal (bouton X)
+closeQuitModal.addEventListener('click', () => {
+  quitModal.style.display = 'none';
+});
+
+// Annuler
+cancelQuitBtn.addEventListener('click', () => {
+  quitModal.style.display = 'none';
+});
+
+// Confirmer et quitter
+confirmQuitBtn.addEventListener('click', async () => {
+  console.log('[Renderer] Confirmation quit, fermeture de l\'application');
+  await window.electronAPI.quitApp();
+});
+
+// Fermer le modal en cliquant en dehors
+quitModal.addEventListener('click', (e) => {
+  if (e.target === quitModal) {
+    quitModal.style.display = 'none';
   }
 });
 
