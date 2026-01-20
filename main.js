@@ -26,6 +26,7 @@ function createSplashWindow() {
     transparent: true,
     alwaysOnTop: true,
     resizable: false,
+    icon: path.join(__dirname, 'build', 'icon.ico'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true
