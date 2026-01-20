@@ -31,7 +31,7 @@
       "preload.js",
       "search.js",
       "icon-extractor.js",
-      "updater",
+      "updater.js",
       "src/**/*",
       "package.json"
     ],
