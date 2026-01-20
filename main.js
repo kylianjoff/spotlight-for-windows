@@ -177,6 +177,14 @@ app.whenReady().then(async () => {
   await new Promise((resolve) => {
     splashWindow.webContents.once('did-finish-load', () => {
       console.log('[SPLASH] Contenu chargé, affichage confirmé');
+      
+      // Envoyer la version au splash
+      const version = app.getVersion();
+      splashWindow.webContents.executeJavaScript(`
+        document.getElementById('version').textContent = 'v${version}';
+      `);
+      console.log('[SPLASH] Version affichée:', version);
+      
       // Attendre encore un peu pour être SÛR qu'il est visible
       setTimeout(resolve, 300);
     });

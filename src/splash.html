@@ -83,38 +83,6 @@
                 opacity: 0.9;
             }
 
-            .status-text {
-                color: rgba(255, 255, 255, 0.7);
-                font-size: 12px;
-                min-height: 18px;
-                margin-top: 10px;
-            }
-
-            .progress-bar {
-                width: 200px;
-                height: 4px;
-                background: rgba(255, 255, 255, 0.2);
-                border-radius: 2px;
-                overflow: hidden;
-                margin-top: 20px;
-            }
-
-            .progress-fill {
-                height: 100%;
-                background: white;
-                border-radius: 2px;
-                width: 0%;
-                transition: width 0.3s ease;
-                animation: progress 3s ease-in-out;
-            }
-
-            @keyframes progress {
-                0% { width: 0%; }
-                33% { width: 30%; }
-                66% { width: 60%; }
-                100% { width: 100%; }
-            }
-
             .version {
                 position: absolute;
                 bottom: 20px;
@@ -125,57 +93,16 @@
     </head>
     <body>
         <div class="splash-container">
-            <div class="logo"></div>
+            <div class="logo">🔍</div>
             <div class="app-name">Spotlight</div>
             <div class="tagline">for Windows</div>
 
             <div class="loading-container">
                 <div class="spinner"></div>
                 <div class="loading-text">Loading...</div>
-                <div class="status-text" id="statusText"></div>
-                <div class="progress-bar">
-                    <div class="progress-fill"></div>
-                </div>
             </div>
 
             <div class="version" id="version"></div>
         </div>
-
-        <script>
-            const { ipcRenderer } = require('electron');
-
-            // Messages de statut qui défilent
-            const statusMessages = [
-                'Initializing...',
-                'Loading components...',
-                'Indexing applications...',
-                'Preparing search engine...',
-                'Almost ready...'
-            ];
-
-            let currentIndex = 0;
-            const statusText = document.getElementById('statusText');
-
-            function updateStatus() {
-                if(currentIndex < statusMessages.length) {
-                    statusText.textContent = statusMessages[currentIndex];
-                    currentIndex++;
-                    setTimeout(updateStatus, 600);
-                }
-            }
-
-            updateStatus();
-
-            // Ecouter le message de version depuis main
-            window.addEventListener('message', (event) => {
-                if(event.data.type === 'version') {
-                    document.getElementById('version').textContent = 'v' + event.data.version;
-                }
-            });
-
-            ipcRenderer.on('indexing-progress', (event, data) => {
-                statusText.textContent = data.message;
-            });
-        </script>
     </body>
 </html>
