@@ -1,5 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Exposer uniquement electronAPI
+// i18n et settings sont chargés via des scripts séparés dans index.html
 contextBridge.exposeInMainWorld('electronAPI', {
   hideWindow: () => ipcRenderer.send('hide-window'),
   searchFiles: (query) => ipcRenderer.invoke('search-files', query),
@@ -17,10 +19,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
 
-  // Ecouter les événements de mise à jour
+  // Écouter les événements de mise à jour
   onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (_, data) => callback(data)),
   onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', () => callback()),
-  onDwnloadProgress: (callback) => ipcRenderer.on('download-progress', (_, data) => callback(data)),
+  onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (_, data) => callback(data)),
   onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (_, data) => callback(data)),
   onUpdateError: (callback) => ipcRenderer.on('update-error', (_, error) => callback(error))
 });
+
+console.log('[Preload] ✅ electronAPI exposé');

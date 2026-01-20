@@ -376,3 +376,36 @@ ipcMain.handle('open-url', async (event, url) => {
     return { success: false, error: error.message };
   }
 });
+
+// ========================================
+// HANDLERS AUTO-LAUNCH
+// ========================================
+
+ipcMain.handle('get-autolaunch-status', async () => {
+  try {
+    const status = await isAutoLaunchEnabled();
+    return status;
+  } catch (error) {
+    console.error('[AutoLaunch] Erreur get status:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('set-autolaunch', async (event, enabled) => {
+  try {
+    if (enabled) {
+      enableAutoLaunch();
+    } else {
+      disableAutoLaunch();
+    }
+    
+    // Vérifier que ça a marché
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const newStatus = await isAutoLaunchEnabled();
+    
+    return { success: true, status: newStatus };
+  } catch (error) {
+    console.error('[AutoLaunch] Erreur set:', error);
+    return { success: false, error: error.message };
+  }
+});

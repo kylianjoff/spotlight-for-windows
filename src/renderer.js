@@ -16,14 +16,14 @@ const newVersionSpan = document.getElementById('newVersion');
 const downloadUpdateBtn = document.getElementById('downloadUpdateBtn');
 const installUpdateBtn = document.getElementById('installUpdateBtn');
 const checkUpdatesBtn = document.getElementById('checkUpdatesBtn');
-const updateStatus = document.getElemenntById('updateStatus');
-const downloadProgress = document.getElementByIdd('downloadProgress');
+const updateStatus = document.getElementById('updateStatus');
+const downloadProgress = document.getElementById('downloadProgress');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
 
 let updateAvailable = false;
 
-window.eletronAPI.onUpdateAvailable((data) => {
+window.electronAPI.onUpdateAvailable((data) => {
   console.log('[Renderer] Mise à jour disponible:', data.version);
   updateAvailable = true;
 
@@ -79,7 +79,6 @@ downloadUpdateBtn.addEventListener('click', async () => {
   }
 });
 
-// Installer et redémrrer
 installUpdateBtn.addEventListener('click', async () => {
   console.log('[Renderer] Installation de la mise à jour');
   const result = await window.electronAPI.installUpdate();
@@ -90,9 +89,8 @@ installUpdateBtn.addEventListener('click', async () => {
   }
 });
 
-// Vérifier manuellement
 checkUpdatesBtn.addEventListener('click', async () => {
-  console.log('[Renderer] Vérification manuelle des mises àà jour');
+  console.log('[Renderer] Vérification manuelle des mises à jour');
   checkUpdatesBtn.disabled = true;
   updateStatus.textContent = window.i18n.t('settings.checkingUpdates');
   updateStatus.style.color = '#667eea';
@@ -114,7 +112,6 @@ checkUpdatesBtn.addEventListener('click', async () => {
   }, 2000);
 });
 
-// Vérifier le statut au chargement
 async function checkUpdateStatus() {
   const status = await window.electronAPI.getUpdateStatus();
 
@@ -127,7 +124,6 @@ async function checkUpdateStatus() {
 
 checkUpdateStatus();
 
-// Charger le statut auto-launch
 async function loadAutoLaunchStatus() {
   console.log('[Renderer] Chargement statut auto-launch...');
 
@@ -146,16 +142,15 @@ async function loadAutoLaunchStatus() {
   }
 }
 
-// Changer le statut auto-launch
 autoLaunchToggle.addEventListener('change', async (e) => {
   const newStatus = e.target.checked;
-  console.log('[Renderer] Chargement auto-launch:', newStatus);
+  console.log('[Renderer] Changement auto-launch:', newStatus);
 
   try {
     const result = await window.electronAPI.setAutoLaunch(newStatus);
 
     if (result.success) {
-      console.log('[renderer] Auto-launch modifié avec succès');
+      console.log('[Renderer] Auto-launch modifié avec succès');
 
       window.settings.set('autoLaunch', newStatus);
 
@@ -178,17 +173,16 @@ autoLaunchToggle.addEventListener('change', async (e) => {
   }
 });
 
-// Charger au démarrage
 loadAutoLaunchStatus();
 
-// Initialiser la langue
 if(typeof window.i18n !== 'undefined') {
   console.log('[Renderer] i18n chargé, langue:', window.i18n.getCurrentLanguage());
   window.i18n.updateUI();
   languageSelect.value = window.i18n.getCurrentLanguage();
+} else {
+  console.error('[Renderer] ❌ i18n non disponible !');
 }
 
-// Event listener pour changer la langue
 languageSelect.addEventListener('change', (e) => {
   const newLang = e.target.value;
   console.log('[Renderer] Changement de langue:', newLang);
@@ -196,14 +190,12 @@ languageSelect.addEventListener('change', (e) => {
   console.log('[Renderer] Langue sauvegardée:', window.settings.get('language'));
 });
 
-// Ouvrir/fermer les paramètres
 settingsBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   console.log('[Renderer] Ouverture paramètres');
 
   loadAutoLaunchStatus();
 
-  settingsModal.classList.add('show');
   settingsModal.style.display = 'flex';
 });
 
@@ -218,10 +210,9 @@ settingsModal.addEventListener('click', (e) => {
 });
 
 let selectedIndex = 0;
-let allResults = []; // Tous les résultats combinés pour la navigation
+let allResults = [];
 let searchTimeout;
 
-// Recherche en temps réel avec debounce
 searchInput.addEventListener('input', async (e) => {
   const query = e.target.value;
   
@@ -233,51 +224,45 @@ searchInput.addEventListener('input', async (e) => {
     return;
   }
 
-  // Debounce
   clearTimeout(searchTimeout);
   
   searchTimeout = setTimeout(async () => {
-    // Afficher loaders
-    showSection(appsSection, `<div class="loading">${i18n.t('search.loading')}</div>`);
-    showSection(filesSection, `<div class="loading">${i18n.t('search.loading')}</div>`);
-    showSection(webSection, `<div class="loading">${i18n.t('search.loading')}</div>`);
+    showSection(appsSection, `<div class="loading">${window.i18n.t('search.loading')}</div>`);
+    showSection(filesSection, `<div class="loading">${window.i18n.t('search.loading')}</div>`);
+    showSection(webSection, `<div class="loading">${window.i18n.t('search.loading')}</div>`);
     
     try {
       console.log('Appel searchFiles...');
       const results = await window.electronAPI.searchFiles(query);
       console.log('Résultats reçus:', results.length);
       
-      // Séparer applications et fichiers
       const apps = results.filter(r => r.isApp);
       const files = results.filter(r => !r.isApp);
       
-      // Afficher les résultats
       displayApps(apps, query);
       displayFiles(files, query);
       displayWebSuggestions(query);
       
-      // Construire la liste globale pour navigation clavier
       allResults = [...apps, ...files];
       selectedIndex = 0;
       updateGlobalSelection();
       
     } catch (error) {
       console.error('Erreur recherche:', error);
-      showSection(appsSection, `<div class="no-results">${i18n.t('search.error')}</div>`);
+      showSection(appsSection, `<div class="no-results">${window.i18n.t('search.error')}</div>`);
       hideSection(filesSection);
       hideSection(webSection);
     }
   }, 150);
 });
 
-// Afficher les applications
 async function displayApps(apps, query) {
   if (apps.length === 0) {
     hideSection(appsSection);
     return;
   }
 
-  const maxApps = 5; // Limiter à 5 apps
+  const maxApps = 5;
   const displayedApps = apps.slice(0, maxApps);
   
   const html = displayedApps
@@ -287,7 +272,7 @@ async function displayApps(apps, query) {
       const source = app.source || '';
 
       const sourceKey = `source.${source.replace('_', '')}`;
-      const sourceBadge = i18n.t(sourceKey) !== sourceKey ? i18n.t(sourceKey) : '';
+      const sourceBadge = window.i18n.t(sourceKey) !== sourceKey ? window.i18n.t(sourceKey) : '';
       
       return `
         <div class="result-item app-item" data-global-index="${index}">
@@ -296,7 +281,7 @@ async function displayApps(apps, query) {
           </span>
           <div class="result-info">
             <div class="result-name">${escapeHtml(displayName)}</div>
-            <div class="result-path">${sourceBadge ? `${sourceBadge} • ` : ''}${i18n.t('type.application')}</div>
+            <div class="result-path">${sourceBadge ? `${sourceBadge} • ` : ''}${window.i18n.t('type.application')}</div>
           </div>
           <div class="result-action">
             <kbd>↵</kbd>
@@ -308,7 +293,6 @@ async function displayApps(apps, query) {
   
   showSection(appsSection, html);
   
-  // Charger les icônes des apps
   displayedApps.forEach(async (app, index) => {
     const iconSpan = document.querySelector(`[data-global-index="${index}"] .result-icon`);
     if (!iconSpan) return;
@@ -323,18 +307,16 @@ async function displayApps(apps, query) {
     }
   });
   
-  // Ajouter les événements click
   addClickHandlers(displayedApps, 0);
 }
 
-// Afficher les fichiers
 function displayFiles(files, query) {
   if (files.length === 0) {
     hideSection(filesSection);
     return;
   }
 
-  const maxFiles = 8; // Limiter à 8 fichiers
+  const maxFiles = 8;
   const displayedFiles = files.slice(0, maxFiles);
   const appsCount = allResults.filter(r => r.isApp).length;
   
@@ -345,7 +327,7 @@ function displayFiles(files, query) {
       const icon = file.icon || '📄';
       const type = file.type || 'file';
       
-      const typeLabel = i18n.t(`type.${type}`);
+      const typeLabel = window.i18n.t(`type.${type}`);
       
       return `
         <div class="result-item file-item" data-global-index="${appsCount + index}">
@@ -366,20 +348,18 @@ function displayFiles(files, query) {
   
   showSection(filesSection, html);
   
-  // Ajouter les événements click
   addClickHandlers(displayedFiles, appsCount);
 }
 
-// Afficher suggestions web
 function displayWebSuggestions(query) {
   const webSearches = [
     {
-      engine: i18n.t('web.google'),
+      engine: window.i18n.t('web.google'),
       url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
       icon: '🔍'
     },
     {
-      engine: i18n.t('web.wikipedia'),
+      engine: window.i18n.t('web.wikipedia'),
       url: `https://fr.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}`,
       icon: '📖'
     },
@@ -387,7 +367,7 @@ function displayWebSuggestions(query) {
   
   const html = webSearches
     .map((search) => {
-      const searchText = i18n.t('web.searchOn', {
+      const searchText = window.i18n.t('web.searchOn', {
         query: query,
         engine: search.engine
       });
@@ -408,7 +388,6 @@ function displayWebSuggestions(query) {
   
   showSection(webSection, html);
   
-  // Ajouter événements click pour ouvrir dans le navigateur
   document.querySelectorAll('.web-item').forEach(item => {
     item.addEventListener('click', () => {
       const url = item.getAttribute('data-url');
@@ -417,7 +396,6 @@ function displayWebSuggestions(query) {
   });
 }
 
-// Navigation au clavier
 searchInput.addEventListener('keydown', (e) => {
   const items = document.querySelectorAll('.result-item');
   
@@ -438,12 +416,10 @@ searchInput.addEventListener('keydown', (e) => {
       e.preventDefault();
       const selectedItem = items[selectedIndex];
       
-      if (selectedItem.classList.contains('web-item')) {
-        // Ouvrir URL web
+      if (selectedItem && selectedItem.classList.contains('web-item')) {
         const url = selectedItem.getAttribute('data-url');
         window.electronAPI.openUrl(url);
       } else if (allResults[selectedIndex]) {
-        // Ouvrir fichier/app
         openResult(allResults[selectedIndex]);
       }
       break;
@@ -454,7 +430,6 @@ searchInput.addEventListener('keydown', (e) => {
   }
 });
 
-// Mettre à jour la sélection globale
 function updateGlobalSelection() {
   const items = document.querySelectorAll('.result-item');
   items.forEach((item, index) => {
@@ -466,7 +441,6 @@ function updateGlobalSelection() {
   }
 }
 
-// Ajouter les handlers de click
 function addClickHandlers(results, offset) {
   results.forEach((result, index) => {
     const item = document.querySelector(`[data-global-index="${offset + index}"]`);
@@ -478,7 +452,6 @@ function addClickHandlers(results, offset) {
   });
 }
 
-// Ouvrir un résultat
 async function openResult(result) {
   console.log('Ouverture de:', result.path);
   try {
@@ -493,7 +466,6 @@ async function openResult(result) {
   }
 }
 
-// Utilitaires d'affichage
 function showSection(section, html) {
   section.style.display = 'block';
   const resultsDiv = section.querySelector('.section-results');
@@ -510,7 +482,6 @@ function hideAllSections() {
   webSection.style.display = 'none';
 }
 
-// Raccourcir les chemins
 function shortenPath(pathStr) {
   const maxLength = 50;
   if (pathStr.length <= maxLength) return pathStr;
@@ -521,14 +492,12 @@ function shortenPath(pathStr) {
   return parts[0] + '\\...\\' + parts.slice(-2).join('\\');
 }
 
-// Échapper HTML
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-// Réinitialiser à l'ouverture
 window.addEventListener('focus', () => {
   searchInput.value = '';
   hideAllSections();
@@ -536,9 +505,8 @@ window.addEventListener('focus', () => {
   searchInput.focus();
 });
 
-// Ecouter les changements de langue
 window.addEventListener('languageChanged', () => {
-  console.log('Langue changée:', i18n.getCurrentLanguage());
+  console.log('Langue changée:', window.i18n.getCurrentLanguage());
 
   if(allResults.length > 0) {
     const apps = allResults.filter(r => r.isApp);
@@ -549,6 +517,6 @@ window.addEventListener('languageChanged', () => {
     displayFiles(files, query);
     displayWebSuggestions(query);
   }
-})
+});
 
-console.log('Renderer.js chargé');
+console.log('[Renderer] ✅ Renderer.js chargé');
