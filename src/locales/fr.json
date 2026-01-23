@@ -1,0 +1,67 @@
+{
+    "search": {
+        "placeholder": "Rechercher applications, fichiers, web...",
+        "loading": "Recherche...",
+        "noResults": "Aucun résultat trouvé",
+        "error": "Erreur"
+    },
+    "section": {
+        "applications": "Applications",
+        "files": "Fichiers",
+        "web": "Recherche Web"
+    },
+    "type": {
+        "application": "Application",
+        "document": "Document",
+        "spreadsheet": "Tableur",
+        "presentation": "Présentation",
+        "image": "Image",
+        "video": "Vidéo",
+        "audio": "Audio",
+        "code": "Code",
+        "archive": "Archive",
+        "file": "Fichier"
+    },
+    "source": {
+        "registry": "Installé",
+        "diskscan": "Program Files",
+        "startmenu": "Menu Démarrer",
+        "appdata": "AppData",
+        "windowssystem": "Système",
+        "steam": "Steam",
+        "epic": "Epic",
+        "store": "Store",
+        "installed": "Installé",
+        "system": "Système"
+    },
+    "web": {
+        "searchOn": "Rechercher \"{query}\" sur {engine}",
+        "google": "Google",
+        "wikipedia": "Wikipédia"
+    },
+    "action": {
+        "open": "Ouvrir",
+        "openInBrowser": "Ouvrir dans le navigateur"
+    },
+    "settings": {
+        "title": "Paramètres",
+        "language": "Langue",
+        "theme": "Thème",
+        "hotkey": "Raccourci clavier",
+        "autolaunch": "Lancer au démarrage",
+        "updateAvailable": "Mise à jour disponible",
+        "downloadUpdate": "Télécharger",
+        "installUpdate": "Installer et redémarrer",
+        "checkUpdates": "Vérifier les mises à jour",
+        "checkNow": "Vérifier maintenant",
+        "upToDate": "Vous êtes à jour !",
+        "checkingUpdates": "Vérification en cours...",
+        "updateError": "Erreur lors de la vérification",
+        "quitApp": "Quitter l'application",
+        "quit": "Quitter",
+        "confirmQuit": "Confirmer la fermeture",
+        "quitMessage": "Voulez-vous vraiment quitter Spotlight for Windows ? Vous pourrez le relancer comme une application basique.",
+        "cancel": "Annuler",
+        "confirmQuitBtn": "Quitter l'application"
+    }
+}

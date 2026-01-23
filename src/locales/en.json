@@ -1,0 +1,67 @@
+{
+    "search": {
+        "placeholder": "Search application, files, web...",
+        "loading": "Searching...",
+        "noResults": "No results found",
+        "error": "Error"
+    },
+    "section": {
+        "applications": "Applications",
+        "files": "Files",
+        "web": "Web Search"
+    },
+    "type": {
+        "application": "Application",
+        "document": "Document",
+        "spreadsheet": "Spreadsheet",
+        "presentation": "Presentation",
+        "image": "Image",
+        "video": "Video",
+        "audio": "Audio",
+        "code": "Code",
+        "archive": "Archive",
+        "file": "File"
+    },
+    "source": {
+        "registry": "Installed",
+        "diskscan": "Program Files",
+        "startmenu": "Start Menu",
+        "appdata": "AppData",
+        "windowssystem": "System",
+        "steam": "Steam",
+        "epic": "Epic",
+        "store": "Store",
+        "installed": "Installed",
+        "system": "System"
+    },
+    "web": {
+        "searchOn": "Search \"{query}\" on {engine}",
+        "google": "Google",
+        "wikipedia": "Wikipedia"
+    },
+    "action": {
+        "open": "Open",
+        "openInBrowser": "Open in browser"
+    },
+    "settings": {
+        "title": "Settings",
+        "language": "Language",
+        "theme": "Theme",
+        "hotkey": "Hotkey",
+        "autolaunch": "Launch at startup",
+        "updateAvailable": "Update Available",
+        "downloadUpdate": "Download",
+        "installUpdate": "Install and Restart",
+        "checkUpdates": "Check for updates",
+        "checkNow": "Check Now",
+        "upToDate": "You're up to date!",
+        "checkingUpdates": "Checking for updates...",
+        "updateError": "Error checking for updates",
+        "quitApp": "Quit Application",
+        "quit": "Quit",
+        "confirmQuit": "Confirm Quit",
+        "quitMessage": "Are you sure you want to quit Spotlight for Windows? You can relaunch it like a basic application.",
+        "cancel": "Cancel",
+        "confirmQuitBtn": "Quit Application"
+    }
+}

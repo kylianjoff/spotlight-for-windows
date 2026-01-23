@@ -27,140 +27,41 @@ class I18n {
         this.updateUI();
     }
 
-    loadTranslations() {
-        this.translations = {
-            en: {
-                // Search
-                'search.placeholder': 'Search applications, files, web...',
-                'search.loading': 'Searching...',
-                'search.noResults': 'No results found',
-                'search.error': 'Error',
+    async loadTranslations() {
+        try {
+            const languages = ['en', 'fr'];
 
-                // Sections
-                'section.applications': 'Applications',
-                'section.files': 'Files',
-                'section.web': 'Web Search',
+            for (const lang of languages) {
+                try {
+                    const response = await fetch(`locales/${lang}.json`);
+                    if(response.ok) {
+                        const data = await response.json();
 
-                // Result types
-                'type.application': 'Application',
-                'type.document': 'Document',
-                'type.spreadsheet': 'Spreadsheet',
-                'type.presentation': 'Presentation',
-                'type.image': 'Image',
-                'type.video': 'Video',
-                'type.audio': 'Audio',
-                'type.code': 'Code',
-                'type.archive': 'Archive',
-                'type.file': 'File',
-
-                // Sources
-                'source.steam': 'Steam',
-                'source.epic': 'Epic',
-                'source.store': 'Store',
-                'source.installed': 'Installed',
-                'source.system': 'System',
-
-                // Web search
-                'web.searchOn': 'Search "{query}" on {engine}',
-                'web.google': 'Google',
-                'web.wikipedia': 'Wikipedia',
-
-                // Actions
-                'action.open': 'Open',
-                'action.openInBrowser': 'Open in browser',
-
-                // Settings
-                'settings.title': 'Settings',
-                'settings.language': 'Language',
-                'settings.theme': 'Theme',
-                'settings.hotkey': 'Hotkey',
-                'settings.autolaunch': 'Launch at startup',
-
-                // Mises à jour
-                'settings.updateAvailable': 'Update Available',
-                'settings.downloadUpdate': 'Download',
-                'settings.installUpdate': 'Install and Restart',
-                'settings.checkUpdates': 'Check for updates',
-                'settings.checkNow': 'Check Now',
-                'settings.upToDate': 'You\'re up to date!',
-                'settings.checkingUpdates': 'Checking for updates...',
-                'settings.updateError': 'Error checking for updates',
-
-                // Quit
-                'settings.quitApp': 'Quit Application',
-                'settings.quit': 'Quit',
-                'settings.confirmQuit': 'Confirm Quit',
-                'settings.quitMessage': 'Are you sure you want to quit Spotlight for Windows ? You can relaunch it like a basic application.',
-                'settings.cancel': 'Cancel',
-                'settings.confirmQuitBtn': 'Quit Application',
-            },
-
-            fr: {
-                // Search
-                'search.placeholder': 'Rechercher applications, fichiers, web...',
-                'search.loading': 'Recherche...',
-                'search.noResults': 'Aucun résultat trouvé',
-                'search.error': 'Erreur',
-
-                // Sections
-                'section.applications': 'Applications',
-                'section.files': 'Fichiers',
-                'section.web': 'Recherche Web',
-
-                // Result types
-                'type.application': 'Application',
-                'type.document': 'Document',
-                'type.spreadsheet': 'Tableur',
-                'type.presentation': 'Présentation',
-                'type.image': 'Image',
-                'type.video': 'Vidéo',
-                'type.audio': 'Audio',
-                'type.code': 'Code',
-                'type.archive': 'Archive',
-                'type.file': 'Fichier',
-
-                // Sources
-                'source.steam': 'Steam',
-                'source.epic': 'Epic',
-                'source.store': 'Store',
-                'source.installed': 'Installé',
-                'source.system': 'Système',
-
-                // Web search
-                'web.searchOn': 'Rechercher "{query}" sur {engine}',
-                'web.google': 'Google',
-                'web.wikipedia': 'Wikipedia',
-
-                // Actions
-                'action.open': 'Ouvrir',
-                'action.openInBrowser': 'Ouvrir dans le navigateur',
-
-                // Settings
-                'settings.title': 'Paramètres',
-                'settings.language': 'Langue',
-                'settings.theme': 'Thème',
-                'settings.hotkey': 'Raccourci clavier',
-                'settings.autolaunch': 'Lancer au démarrage',
-
-                // Mises à jour
-                'settings.updateAvailable': 'Mise à jour disponible',
-                'settings.downloadUpdate': 'Télécharger',
-                'settings.installUpdates': 'Installer et redémarrer',
-                'settings.checkUpdates': 'Vérifier les mises à jour',
-                'settings.checkNow': 'Vérifier maintenant',
-                'settings.upToDate': 'Vous êtes à jour !',
-                'settings.checkingUpdates': 'Vérification en cours...',
-                'settings.updateError': 'Erreur lors de la vérification',
-
-                // Quit
-                'settings.quitApp': 'Quitter l\'application',
-                'settings.quit': 'Quitter',
-                'settings.confirmQuit': 'Confirmer la fermeture',
-                'settings.quitMessage': 'Voulez-vous vraiment quitter Spotlight for Windws ? Vous pourrez le relancer comme une application basique.',
-                'settings.cancel': 'Annuler',
-                'settings.confirmQuitBtn': 'Quitter l\'application',
+                        this.translations[lang] = this.flattenObject(data);
+                        console.log(`[i18n] Langue ${lang} chargée avec succès`);
+                    }
+                } catch (error) {
+                    console.error(`[i18n] Erreur chargement ${lang}:`, error);
+                }
             }
-        };
+            this.updateUI();
+        } catch (error) {
+            console.error('[i18n] Erreur lors du chargement des traductions:', error);
+        }
+    }
+
+    flattenObject(obj, prefix = '') {
+        return Object.keys(obj).reduce((acc, key) => {
+            const prefixedKey = prefix ? `${prefix}.${key}` : key;
+
+            if(typeof obj[key] == 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+                Object.assign(acc, this.flattenObject(obj[key], prefixedKey));
+            } else {
+                acc[prefixedKey] = obj[key];
+            }
+
+            return acc;
+        }, {});
     }
 
     t(key, params = {}) {
