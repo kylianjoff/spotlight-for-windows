@@ -219,38 +219,78 @@ settingsModal.addEventListener('click', (e) => {
 let selectedIndex = 0;
 let allResults = [];
 let searchTimeout;
+let searchToken = 0;
+const appIconCache = new Map();
+let iconLoadTimer;
+let lastQueryRendered = '';
+let lastResultsCache = [];
 
 searchInput.addEventListener('input', async (e) => {
   const query = e.target.value;
+  const currentToken = ++searchToken;
+  const queryLower = query.toLowerCase();
   
   console.log('Query:', query);
   
   if (query.length === 0) {
     hideAllSections();
     allResults = [];
+    lastQueryRendered = '';
+    lastResultsCache = [];
     return;
   }
 
+  if (lastQueryRendered && queryLower.startsWith(lastQueryRendered) && lastResultsCache.length > 0) {
+    const fastResults = filterCachedResults(lastResultsCache, queryLower);
+    const fastApps = fastResults.filter(r => r.isApp);
+    const fastFiles = fastResults.filter(r => !r.isApp);
+
+    displayApps(fastApps, query, currentToken);
+    displayFiles(fastFiles, query);
+    if (query.length >= 2) {
+      displayWebSuggestions(query);
+    } else {
+      hideSection(webSection);
+    }
+
+    allResults = [...fastApps, ...fastFiles];
+    selectedIndex = 0;
+    updateGlobalSelection();
+  }
+
   clearTimeout(searchTimeout);
+  if (iconLoadTimer) {
+    clearTimeout(iconLoadTimer);
+    iconLoadTimer = null;
+  }
   
   searchTimeout = setTimeout(async () => {
-    showSection(appsSection, `<div class="loading">${window.i18n.t('search.loading')}</div>`);
-    showSection(filesSection, `<div class="loading">${window.i18n.t('search.loading')}</div>`);
-    showSection(webSection, `<div class="loading">${window.i18n.t('search.loading')}</div>`);
+    if (currentToken !== searchToken) return;
+
+    if (allResults.length === 0) {
+      showSection(appsSection, `<div class="loading">${window.i18n.t('search.loading')}</div>`);
+      showSection(filesSection, `<div class="loading">${window.i18n.t('search.loading')}</div>`);
+      showSection(webSection, `<div class="loading">${window.i18n.t('search.loading')}</div>`);
+    }
     
     try {
-      console.log('Appel searchFiles...');
       const results = await window.electronAPI.searchFiles(query);
-      console.log('Résultats reçus:', results.length);
+      if (currentToken !== searchToken) return;
       
       const apps = results.filter(r => r.isApp);
       const files = results.filter(r => !r.isApp);
       
-      displayApps(apps, query);
+      displayApps(apps, query, currentToken);
       displayFiles(files, query);
-      displayWebSuggestions(query);
+      if (query.length >= 2) {
+        displayWebSuggestions(query);
+      } else {
+        hideSection(webSection);
+      }
       
       allResults = [...apps, ...files];
+      lastQueryRendered = queryLower;
+      lastResultsCache = [...allResults];
       selectedIndex = 0;
       updateGlobalSelection();
       
@@ -260,10 +300,19 @@ searchInput.addEventListener('input', async (e) => {
       hideSection(filesSection);
       hideSection(webSection);
     }
-  }, 150);
+  }, 60);
 });
 
-async function displayApps(apps, query) {
+function filterCachedResults(results, queryLower) {
+  return results.filter(item => {
+    const name = (item.nameWithoutExtLower || item.nameWithoutExt || '').toLowerCase();
+    const display = (item.displayNameLower || item.displayName || '').toLowerCase();
+    const full = (item.nameLower || item.name || '').toLowerCase();
+    return name.includes(queryLower) || display.includes(queryLower) || full.includes(queryLower);
+  });
+}
+
+async function displayApps(apps, query, token) {
   if (apps.length === 0) {
     hideSection(appsSection);
     return;
@@ -300,19 +349,39 @@ async function displayApps(apps, query) {
   
   showSection(appsSection, html);
   
-  displayedApps.forEach(async (app, index) => {
-    const iconSpan = document.querySelector(`[data-global-index="${index}"] .result-icon`);
-    if (!iconSpan) return;
-    
-    if (app.iconPath) {
-      iconSpan.innerHTML = `<img src="${app.iconPath}" class="app-icon" alt="icon">`;
-    } else {
+  if (iconLoadTimer) {
+    clearTimeout(iconLoadTimer);
+  }
+
+  iconLoadTimer = setTimeout(async () => {
+    if (token !== searchToken) return;
+
+    for (let index = 0; index < displayedApps.length; index += 1) {
+      if (token !== searchToken) return;
+
+      const app = displayedApps[index];
+      const iconSpan = document.querySelector(`[data-global-index="${index}"] .result-icon`);
+      if (!iconSpan) continue;
+
+      const cached = appIconCache.get(app.path);
+      if (cached) {
+        iconSpan.innerHTML = `<img src="${cached}" class="app-icon" alt="icon">`;
+        continue;
+      }
+
+      if (app.iconPath) {
+        appIconCache.set(app.path, app.iconPath);
+        iconSpan.innerHTML = `<img src="${app.iconPath}" class="app-icon" alt="icon">`;
+        continue;
+      }
+
       const iconPath = await window.electronAPI.getAppIcon(app.path);
-      if (iconPath) {
+      if (iconPath && token === searchToken) {
+        appIconCache.set(app.path, iconPath);
         iconSpan.innerHTML = `<img src="${iconPath}" class="app-icon" alt="icon">`;
       }
     }
-  });
+  }, 60);
   
   addClickHandlers(displayedApps, 0);
 }

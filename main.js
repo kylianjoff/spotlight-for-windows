@@ -1,8 +1,8 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, shell, app: electronApp } = require('electron');
 const path = require('path');
-const FileSearcher = require('./search.js');
+const { Worker } = require('worker_threads');
 const { exec } = require('child_process');
-const iconExtractor = require('./icon-extractor.js');
+const IconExtractor = require('./icon-extractor.js');
 const UpdateManager = require('./updater.js');
 
 if(process.platform === 'win32') {
@@ -15,8 +15,58 @@ if(process.platform === 'win32') {
 
 let mainWindow;
 let splashWindow;
-let searcher;
+let searchWorker;
+let workerRequestId = 0;
+const workerPending = new Map();
+let searchSequence = 0;
+let iconExtractorInstance;
 let updateManager;
+
+function startSearchWorker() {
+  const workerPath = path.join(__dirname, 'search-worker.js');
+  searchWorker = new Worker(workerPath);
+
+  searchWorker.on('message', (message) => {
+    if (message && message.type === 'ready') {
+      return;
+    }
+
+    const { id, result, error } = message || {};
+    const pending = workerPending.get(id);
+    if (!pending) return;
+
+    workerPending.delete(id);
+    if (error) {
+      pending.reject(new Error(error));
+    } else {
+      pending.resolve(result);
+    }
+  });
+
+  searchWorker.on('error', (error) => {
+    console.error('[Worker] Erreur:', error);
+    for (const pending of workerPending.values()) {
+      pending.reject(error);
+    }
+    workerPending.clear();
+  });
+
+  searchWorker.on('exit', (code) => {
+    console.error('[Worker] Quitte avec code', code);
+  });
+}
+
+function callWorker(type, payload) {
+  if (!searchWorker) {
+    return Promise.reject(new Error('Worker non initialise'));
+  }
+
+  const id = ++workerRequestId;
+  return new Promise((resolve, reject) => {
+    workerPending.set(id, { resolve, reject });
+    searchWorker.postMessage({ id, type, payload });
+  });
+}
 
 function createSplashWindow() {
   splashWindow = new BrowserWindow({
@@ -195,8 +245,9 @@ app.whenReady().then(async () => {
   // 3. CRÉER LA FENÊTRE PRINCIPALE (cachée)
   createWindow();
 
-  // 4. INITIALISER LE SEARCHER
-  searcher = new FileSearcher();
+  // 4. INITIALISER LE WORKER DE RECHERCHE + EXTRACTION ICONES
+  startSearchWorker();
+  iconExtractorInstance = new IconExtractor();
 
   // 5. ENREGISTRER LE RACCOURCI GLOBAL
   const ret = globalShortcut.register('CommandOrControl+Alt+Space', () => {
@@ -228,7 +279,7 @@ app.whenReady().then(async () => {
 
   // 7. ⭐ MAINTENANT ON PEUT LANCER L'INDEXATION (le splash est visible)
   console.log('[INDEXATION] 🔍 Début du scan...');
-  const indexingPromise = searcher.buildIndex().then(() => {
+  const indexingPromise = callWorker('build-index').then(() => {
     console.log('[OK] Index prêt!');
   }).catch((error) => {
     console.error('[ERROR] Indexation:', error);
@@ -238,12 +289,16 @@ app.whenReady().then(async () => {
   const minDisplayTime = new Promise(resolve => setTimeout(resolve, 2000));
   const maxDisplayTime = new Promise(resolve => setTimeout(resolve, 10000));
   
-  await Promise.race([
-    Promise.all([indexingPromise, minDisplayTime]),
-    maxDisplayTime
-  ]);
-  
-  closeSplashAndShowApp();
+  try {
+    await Promise.race([
+      Promise.all([indexingPromise, minDisplayTime]),
+      maxDisplayTime
+    ]);
+  } catch (error) {
+    console.error('[ERROR] Indexation (race):', error);
+  } finally {
+    closeSplashAndShowApp();
+  }
 
   // 9. VÉRIFIER ET ACTIVER AUTO-LAUNCH (en arrière-plan, après le splash)
   setTimeout(async () => {
@@ -316,6 +371,9 @@ app.on('window-all-closed', () => {
 // Libérer les raccourcis
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  if (searchWorker) {
+    searchWorker.terminate();
+  }
 });
 
 // Gérer la fermeture depuis le renderer
@@ -325,14 +383,21 @@ ipcMain.on('hide-window', () => {
 
 // Gérer les recherches
 ipcMain.handle('search-files', async (event, query) => {
-  if (!searcher) return [];
-  return searcher.search(query, 15);
+  if (!searchWorker) return [];
+  searchSequence += 1;
+  const searchId = searchSequence;
+  return await callWorker('search', { query, limit: 15, searchId });
 });
 
 // Ouvrir un fichier ou application
 ipcMain.handle('open-file', async (event, filePath) => {
   try {
     console.log('Ouverture de:', filePath);
+
+    if (filePath.startsWith('shell:AppsFolder\\')) {
+      await shell.openExternal(filePath);
+      return { success: true };
+    }
     
     // Si c'est un raccourci .lnk, utiliser une méthode spéciale
     if (filePath.endsWith('.lnk')) {
@@ -366,10 +431,10 @@ ipcMain.handle('open-file', async (event, filePath) => {
 
 // Handler pour obtenir l'icône d'une app
 ipcMain.handle('get-app-icon', async (event, appPath) => {
-  if (!searcher || !searcher.iconExtractor) return null;
+  if (!iconExtractorInstance) return null;
   
   try {
-    const iconPath = await searcher.iconExtractor.extractIcon(appPath, 'app');
+    const iconPath = await iconExtractorInstance.extractIcon(appPath, 'app');
     return iconPath;
   } catch (error) {
     return null;
