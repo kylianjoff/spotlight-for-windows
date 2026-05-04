@@ -246,7 +246,7 @@ searchInput.addEventListener('input', async (e) => {
     const fastFiles = fastResults.filter(r => !r.isApp);
 
     displayApps(fastApps, query, currentToken);
-    displayFiles(fastFiles, query);
+    displayFiles(fastFiles, query, fastApps.length);
     if (query.length >= 2) {
       displayWebSuggestions(query);
     } else {
@@ -281,7 +281,7 @@ searchInput.addEventListener('input', async (e) => {
       const files = results.filter(r => !r.isApp);
       
       displayApps(apps, query, currentToken);
-      displayFiles(files, query);
+      displayFiles(files, query, apps.length);
       if (query.length >= 2) {
         displayWebSuggestions(query);
       } else {
@@ -386,7 +386,7 @@ async function displayApps(apps, query, token) {
   addClickHandlers(displayedApps, 0);
 }
 
-function displayFiles(files, query) {
+function displayFiles(files, query, appsCount = 0) {
   if (files.length === 0) {
     hideSection(filesSection);
     return;
@@ -394,7 +394,6 @@ function displayFiles(files, query) {
 
   const maxFiles = 8;
   const displayedFiles = files.slice(0, maxFiles);
-  const appsCount = allResults.filter(r => r.isApp).length;
   
   const html = displayedFiles
     .map((file, index) => {
@@ -589,8 +588,8 @@ window.addEventListener('languageChanged', () => {
     const files = allResults.filter(r => !r.isApp);
     const query = searchInput.value;
 
-    displayApps(apps, query);
-    displayFiles(files, query);
+    displayApps(apps, query, searchToken);
+    displayFiles(files, query, apps.length);
     displayWebSuggestions(query);
   }
 });

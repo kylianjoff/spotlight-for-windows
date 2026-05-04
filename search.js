@@ -60,7 +60,7 @@ class FileSearcher extends EventEmitter {
           for (const subkey of subkeys) {
             try {
               // Lire les détails de chaque app
-              const details = execSync(`reg query "${subkey}" /v DisplayName /v InstallLocation /v DisplayIcon 2>nul`, 
+              const details = execSync(`reg query "${subkey}" 2>nul`, 
                 { encoding: 'utf8' });
               
               let displayName = null;
