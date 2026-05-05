@@ -63,5 +63,9 @@
         "quitMessage": "Voulez-vous vraiment quitter Spotlight for Windows ? Vous pourrez le relancer comme une application basique.",
         "cancel": "Annuler",
         "confirmQuitBtn": "Quitter l'application"
+    },
+    "error": {
+        "notFound": "Introuvable : ce logiciel ou ce chemin n'existe plus.",
+        "launchFailed": "Impossible de lancer ce logiciel."
     }
 }

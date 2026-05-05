@@ -1,5 +1,6 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, shell, app: electronApp } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { Worker } = require('worker_threads');
 const { exec } = require('child_process');
 const IconExtractor = require('./icon-extractor.js');
@@ -398,12 +399,38 @@ ipcMain.handle('open-file', async (event, filePath) => {
       await shell.openExternal(filePath);
       return { success: true };
     }
-    
-    // Si c'est un raccourci .lnk, utiliser une méthode spéciale
-    if (filePath.endsWith('.lnk')) {
+
+    // Nettoyer les guillemets résiduels et développer les variables d'env
+    let resolvedPath = filePath.trim().replace(/^"|"$/g, '');
+    resolvedPath = resolvedPath.replace(/%([^%]+)%/g, (_, name) => process.env[name] || `%${name}%`);
+
+    if (!fs.existsSync(resolvedPath)) {
+      console.error('Fichier introuvable:', resolvedPath);
+      return { success: false, error: 'not_found' };
+    }
+
+    const ext = resolvedPath.toLowerCase();
+
+    // Pour les .exe, utiliser start pour un lancement détaché
+    if (ext.endsWith('.exe')) {
       return new Promise((resolve) => {
-        // Utiliser PowerShell pour ouvrir le raccourci
-        exec(`powershell -command "Start-Process '${filePath}'"`, (error) => {
+        const escaped = resolvedPath.replace(/"/g, '\\"');
+        exec(`start "" "${escaped}"`, { shell: true }, (error) => {
+          if (error) {
+            console.error('Erreur lancement exe:', error);
+            resolve({ success: false, error: error.message });
+          } else {
+            resolve({ success: true });
+          }
+        });
+      });
+    }
+
+    // Pour les .lnk, PowerShell avec échappement des apostrophes
+    if (ext.endsWith('.lnk')) {
+      return new Promise((resolve) => {
+        const escaped = resolvedPath.replace(/'/g, "''");
+        exec(`powershell -NonInteractive -Command "Start-Process '${escaped}'"`, (error) => {
           if (error) {
             console.error('Erreur PowerShell:', error);
             resolve({ success: false, error: error.message });
@@ -413,15 +440,15 @@ ipcMain.handle('open-file', async (event, filePath) => {
         });
       });
     }
-    
+
     // Sinon, utiliser shell.openPath normal
-    const result = await shell.openPath(filePath);
-    
+    const result = await shell.openPath(resolvedPath);
+
     if (result) {
       // result contient un message d'erreur si échec
       return { success: false, error: result };
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('Erreur ouverture:', error);

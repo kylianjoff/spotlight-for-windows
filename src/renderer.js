@@ -305,10 +305,23 @@ searchInput.addEventListener('input', async (e) => {
 
 function filterCachedResults(results, queryLower) {
   return results.filter(item => {
-    const name = (item.nameWithoutExtLower || item.nameWithoutExt || '').toLowerCase();
     const display = (item.displayNameLower || item.displayName || '').toLowerCase();
-    const full = (item.nameLower || item.name || '').toLowerCase();
-    return name.includes(queryLower) || display.includes(queryLower) || full.includes(queryLower);
+    const name    = (item.nameWithoutExtLower || item.nameWithoutExt || '').toLowerCase();
+    const full    = (item.nameLower || item.name || '').toLowerCase();
+
+    // Même hiérarchie que scoreMatch dans search.js
+    if (display === queryLower || name === queryLower) return true;
+    if (display.startsWith(queryLower) || name.startsWith(queryLower)) return true;
+
+    const words = display.split(/[\s\-_\.\/\\]+/).filter(Boolean);
+    if (words.some(w => w.startsWith(queryLower))) return true;
+
+    if (queryLower.length >= 2) {
+      const initials = words.map(w => w[0] || '').join('');
+      if (initials.startsWith(queryLower)) return true;
+    }
+
+    return display.includes(queryLower) || name.includes(queryLower) || full.includes(queryLower);
   });
 }
 
@@ -535,10 +548,28 @@ async function openResult(result) {
       window.electronAPI.hideWindow();
     } else {
       console.error('Erreur ouverture:', response.error);
+      const msg = response.error === 'not_found'
+        ? window.i18n.t('error.notFound')
+        : window.i18n.t('error.launchFailed');
+      showErrorNotification(msg);
     }
   } catch (error) {
     console.error('Erreur:', error);
+    showErrorNotification(window.i18n.t('error.launchFailed'));
   }
+}
+
+function showErrorNotification(message) {
+  const existing = document.getElementById('errorNotification');
+  if (existing) existing.remove();
+
+  const notif = document.createElement('div');
+  notif.id = 'errorNotification';
+  notif.className = 'error-notification';
+  notif.textContent = message;
+  document.querySelector('.search-container').appendChild(notif);
+
+  setTimeout(() => notif.remove(), 3000);
 }
 
 function showSection(section, html) {

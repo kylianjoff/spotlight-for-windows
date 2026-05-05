@@ -63,5 +63,9 @@
         "quitMessage": "Are you sure you want to quit Spotlight for Windows? You can relaunch it like a basic application.",
         "cancel": "Cancel",
         "confirmQuitBtn": "Quit Application"
+    },
+    "error": {
+        "notFound": "Not found: this application or path no longer exists.",
+        "launchFailed": "Unable to launch this application."
     }
 }

@@ -235,6 +235,26 @@ body {
   font-size: 14px;
 }
 
+/* Notification d'erreur de lancement */
+.error-notification {
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: rgba(255, 80, 80, 0.18);
+  border: 1px solid rgba(255, 80, 80, 0.5);
+  border-radius: 8px;
+  color: #ff8080;
+  font-size: 13px;
+  text-align: center;
+  animation: fadeInOut 3s ease forwards;
+}
+
+@keyframes fadeInOut {
+  0%   { opacity: 0; transform: translateY(4px); }
+  10%  { opacity: 1; transform: translateY(0); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .loading::after {
   content: '...';
   animation: dots 1.5s steps(4, end) infinite;

@@ -37,14 +37,37 @@ class FileSearcher extends EventEmitter {
     };
   }
 
+  // Développe les variables d'environnement Windows (%ProgramFiles%, etc.)
+  expandEnvVars(str) {
+    if (!str) return str;
+    return str.replace(/%([^%]+)%/g, (_, name) => process.env[name] || `%${name}%`);
+  }
+
+  // Extrait un chemin .exe depuis une valeur de registre (DisplayIcon, UninstallString…)
+  // Ex: `"C:\foo\bar.exe",0`  →  `C:\foo\bar.exe`
+  // Ex: `C:\foo\bar.exe --args`  →  `C:\foo\bar.exe`
+  parseExeFromRegValue(value) {
+    if (!value) return null;
+    value = this.expandEnvVars(value.trim());
+
+    // Cas entre guillemets : "C:\...\foo.exe" ou "C:\...\foo.exe",0 ou "...\foo.exe" --args
+    const quoted = value.match(/^"([^"]+\.exe)"/i);
+    if (quoted) return quoted[1];
+
+    // Cas sans guillemets : C:\...\foo.exe,0 ou C:\...\foo.exe --args
+    const unquoted = value.match(/^([A-Za-z]:\\[^,"\r\n]+?\.exe)/i);
+    if (unquoted) return unquoted[1].trim();
+
+    return null;
+  }
+
   // MÉTHODE 1: Utiliser le registre Windows pour trouver TOUTES les apps installées
   getInstalledAppsFromRegistry() {
     const apps = [];
-    
+
     console.log('  → Scan du registre Windows...');
-    
+
     try {
-      // Lire les clés de registre où Windows stocke les apps installées
       const registryPaths = [
         'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
         'HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall',
@@ -53,57 +76,96 @@ class FileSearcher extends EventEmitter {
 
       for (const regPath of registryPaths) {
         try {
-          // Lister toutes les sous-clés
-          const output = execSync(`reg query "${regPath}"`, { encoding: 'utf8' });
+          const output = execSync(`reg query "${regPath}"`, { encoding: 'utf8', timeout: 10000 });
           const subkeys = output.split('\n').filter(line => line.startsWith('HKEY'));
-          
+
           for (const subkey of subkeys) {
             try {
-              // Lire les détails de chaque app
-              const details = execSync(`reg query "${subkey}" 2>nul`, 
-                { encoding: 'utf8' });
-              
-              let displayName = null;
+              const details = execSync(`reg query "${subkey.trim()}"`,
+                { encoding: 'utf8', timeout: 5000 });
+
+              let displayName     = null;
               let installLocation = null;
-              let iconPath = null;
-              
-              // Parser les valeurs
-              const lines = details.split('\n');
-              for (const line of lines) {
-                if (line.includes('DisplayName')) {
-                  displayName = line.split('REG_SZ')[1]?.trim();
-                }
-                if (line.includes('InstallLocation')) {
-                  installLocation = line.split('REG_SZ')[1]?.trim();
-                }
-                if (line.includes('DisplayIcon')) {
-                  iconPath = line.split('REG_SZ')[1]?.trim();
-                }
+              let displayIcon     = null;
+              let uninstallString = null;
+
+              for (const line of details.split('\n')) {
+                const parts = line.trim().split(/\s{2,}/);
+                // format : "    NomValeur    REG_XX    Donnée"
+                if (parts.length < 3) continue;
+                const [valName, regType, ...rest] = parts;
+                const data = rest.join('  ').trim();
+
+                if (!data) continue;
+
+                if (valName === 'DisplayName')      displayName     = data;
+                if (valName === 'InstallLocation')  installLocation = this.expandEnvVars(data);
+                if (valName === 'DisplayIcon')      displayIcon     = data;
+                if (valName === 'UninstallString')  uninstallString = data;
               }
-              
-              // Si on a un nom et un emplacement
-              if (displayName && installLocation && fs.existsSync(installLocation)) {
-                // Chercher les .exe dans le dossier
+
+              if (!displayName) continue;
+              // Ignorer les entrées système/patches/mises à jour sans exe utilisateur
+              if (/^(kb\d{6,}|microsoft visual c\+\+|microsoft\.net|windows sdk|directx)/i.test(displayName)) continue;
+
+              let exePath = null;
+
+              // ── Niveau 1 : InstallLocation → scan du dossier ──────────────────
+              if (installLocation && fs.existsSync(installLocation)) {
                 const exeFiles = this.findExeInDirectory(installLocation, 2);
-                
-                for (const exePath of exeFiles.slice(0, 2)) { // Max 2 exe par app
-                  apps.push({
-                    path: exePath,
-                    name: path.basename(exePath),
-                    nameWithoutExt: path.basename(exePath, '.exe'),
-                    displayName: displayName,
-                    directory: path.dirname(exePath),
-                    extension: '.exe',
-                    type: 'application',
-                    icon: '⚙️',
-                    baseScore: 22,
-                    size: 0,
-                    modified: new Date(),
-                    isPrimary: true,
-                    source: 'registry'
-                  });
+                exePath = this.getMainExe(exeFiles, displayName);
+              }
+
+              // ── Niveau 2 : DisplayIcon → chemin direct vers l'exe ─────────────
+              if (!exePath) {
+                const candidate = this.parseExeFromRegValue(displayIcon);
+                if (candidate && fs.existsSync(candidate) && !this.isSecondaryExe(path.basename(candidate))) {
+                  exePath = candidate;
                 }
               }
+
+              // ── Niveau 3 : DisplayIcon → dossier parent ───────────────────────
+              if (!exePath) {
+                const candidate = this.parseExeFromRegValue(displayIcon);
+                if (candidate) {
+                  const dir = path.dirname(candidate);
+                  if (fs.existsSync(dir)) {
+                    const exeFiles = this.findExeInDirectory(dir, 1);
+                    exePath = this.getMainExe(exeFiles, displayName);
+                  }
+                }
+              }
+
+              // ── Niveau 4 : UninstallString → dossier parent ───────────────────
+              if (!exePath) {
+                const candidate = this.parseExeFromRegValue(uninstallString);
+                if (candidate) {
+                  const dir = path.dirname(candidate);
+                  if (fs.existsSync(dir)) {
+                    const exeFiles = this.findExeInDirectory(dir, 1);
+                    exePath = this.getMainExe(exeFiles, displayName);
+                  }
+                }
+              }
+
+              if (!exePath) continue;
+
+              apps.push({
+                path: exePath,
+                name: path.basename(exePath),
+                nameWithoutExt: path.basename(exePath, '.exe'),
+                displayName: displayName,
+                directory: path.dirname(exePath),
+                extension: '.exe',
+                type: 'application',
+                icon: '⚙️',
+                baseScore: 22,
+                size: 0,
+                modified: new Date(),
+                isPrimary: true,
+                source: 'registry'
+              });
+
             } catch (err) {
               // App sans détails, continuer
             }
@@ -112,12 +174,12 @@ class FileSearcher extends EventEmitter {
           // Registre inaccessible, continuer
         }
       }
-      
+
       console.log(`    ✓ ${apps.length} apps du registre`);
     } catch (err) {
       console.error('Erreur lecture registre:', err.message);
     }
-    
+
     return apps;
   }
 
@@ -212,14 +274,15 @@ class FileSearcher extends EventEmitter {
                 !['Microsoft', 'Temp', 'cache', 'Packages'].includes(folder.name)) {
               
               const exeFiles = this.findExeInDirectory(folderPath, 2);
-              
-              for (const exePath of exeFiles.slice(0, 1)) {
+              const mainExe = this.getMainExe(exeFiles, folder.name);
+
+              if (mainExe) {
                 apps.push({
-                  path: exePath,
-                  name: path.basename(exePath),
-                  nameWithoutExt: path.basename(exePath, '.exe'),
+                  path: mainExe,
+                  name: path.basename(mainExe),
+                  nameWithoutExt: path.basename(mainExe, '.exe'),
                   displayName: folder.name,
-                  directory: path.dirname(exePath),
+                  directory: path.dirname(mainExe),
                   extension: '.exe',
                   type: 'application',
                   icon: '📦',
@@ -242,54 +305,125 @@ class FileSearcher extends EventEmitter {
     return apps;
   }
 
+  // MÉTHODE PRINCIPALE: Résoudre les raccourcis du Menu Démarrer via COM WScript.Shell
+  // C'est exactement ce que Windows Search utilise comme source d'applications.
+  resolveStartMenuApps() {
+    console.log('  → Résolution des raccourcis Menu Démarrer (COM WScript.Shell)...');
+
+    const psScript = `
+$shell = New-Object -COM WScript.Shell
+$paths = @(
+  [System.Environment]::GetFolderPath('CommonPrograms'),
+  [System.Environment]::GetFolderPath('Programs'),
+  [System.Environment]::GetFolderPath('CommonDesktopDirectory'),
+  [System.Environment]::GetFolderPath('Desktop')
+)
+$seen = @{}
+$results = @()
+foreach ($basePath in $paths) {
+  if (-not (Test-Path $basePath)) { continue }
+  Get-ChildItem -Path $basePath -Filter '*.lnk' -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+    try {
+      $lnk = $shell.CreateShortcut($_.FullName)
+      $target = $lnk.TargetPath
+      if ($target -and $target -ne '' -and $target.ToLower().EndsWith('.exe') -and (Test-Path $target) -and -not $seen[$target]) {
+        $seen[$target] = $true
+        $results += [PSCustomObject]@{
+          Name   = $_.BaseName
+          Path   = $target
+        }
+      }
+    } catch {}
+  }
+}
+if ($results.Count -eq 0) { Write-Output '[]' } else { $results | ConvertTo-Json -Compress }
+`.trim();
+
+    try {
+      const encoded = Buffer.from(psScript, 'utf16le').toString('base64');
+      const output = execSync(
+        `powershell -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
+        { encoding: 'utf8', timeout: 30000 }
+      ).trim();
+
+      if (!output || output === 'null') return [];
+
+      const parsed = JSON.parse(output);
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      const apps = [];
+
+      for (const item of list) {
+        if (!item || !item.Name || !item.Path) continue;
+        apps.push({
+          path: item.Path,
+          name: path.basename(item.Path),
+          nameWithoutExt: path.basename(item.Path, '.exe'),
+          displayName: item.Name,
+          directory: path.dirname(item.Path),
+          extension: '.exe',
+          type: 'application',
+          icon: '⚙️',
+          baseScore: 24,
+          size: 0,
+          modified: new Date(),
+          isPrimary: true,
+          source: 'start_menu'
+        });
+      }
+
+      console.log(`    ✓ ${apps.length} apps du Menu Démarrer`);
+      return apps;
+    } catch (err) {
+      console.error('  → Erreur résolution Menu Démarrer:', err.message);
+      return [];
+    }
+  }
+
   // MÉTHODE PRINCIPALE: Scanner TOUTES les applications
   scanApplications(includeDiskScan = true) {
     console.log('📱 Découverte automatique des applications...');
-    
+
     let allApps = [];
-    
-    // 1. Registre Windows (source la plus fiable)
+
+    // 1. ⭐ Menu Démarrer via COM (source la plus fiable, chemins vérifiés par PowerShell)
+    const startMenuApps = this.resolveStartMenuApps();
+    allApps.push(...startMenuApps);
+
+    // 2. Apps Microsoft Store (UWP) via Get-StartApps
+    const storeApps = this.getStoreApps();
+    allApps.push(...storeApps);
+
+    // 3. Applications système Windows importantes
+    const systemApps = this.getSystemApps();
+    allApps.push(...systemApps);
+
+    // 4. Chemins connus (Git Bash, Minecraft, etc.)
+    const knownApps = this.getKnownApps();
+    allApps.push(...knownApps);
+
+    // 5. Registre Windows en complément (pour les apps sans raccourci Menu Démarrer)
     const registryApps = this.getInstalledAppsFromRegistry();
     allApps.push(...registryApps);
-    
-    // 2. Scan des disques (optionnel, lourd)
+
+    // 6. Scan des disques en complément (optionnel, lourd)
     let diskApps = [];
     if (includeDiskScan) {
       diskApps = this.scanAllDrivesForApps();
       allApps.push(...diskApps);
     }
-    
-    // 3. Menu Démarrer ignore (source de raccourcis)
-    // const startMenuApps = this.scanStartMenus();
-    // allApps.push(...startMenuApps);
-    
-    // 4. AppData
+
+    // 7. AppData (apps portables)
     const appDataApps = this.scanAppData();
     allApps.push(...appDataApps);
-    
-    // 5. Apps Microsoft Store (UWP)
-    const storeApps = this.getStoreApps();
-    allApps.push(...storeApps);
-
-    // 6. Chemins connus (Git Bash, Minecraft, etc.)
-    const knownApps = this.getKnownApps();
-    allApps.push(...knownApps);
-
-    // 7. Applications système Windows importantes
-    const systemApps = this.getSystemApps();
-    allApps.push(...systemApps);
 
     console.log(
-      `  Sources: registre ${registryApps.length}, disques ${diskApps.length}, appdata ${appDataApps.length}, store ${storeApps.length}, connus ${knownApps.length}, systeme ${systemApps.length}`
+      `  Sources: menu_démarrer ${startMenuApps.length}, store ${storeApps.length}, système ${systemApps.length}, connus ${knownApps.length}, registre ${registryApps.length}, disques ${diskApps.length}, appdata ${appDataApps.length}`
     );
-    
     console.log(`  📊 Total brut: ${allApps.length} applications`);
-    
-    // Dédupliquer intelligemment
+
     const uniqueApps = this.deduplicateApps(allApps);
-    
     console.log(`  ✅ ${uniqueApps.length} applications uniques`);
-    
+
     return uniqueApps;
   }
 
@@ -415,15 +549,11 @@ class FileSearcher extends EventEmitter {
           const appPath = path.join(dir, item.name);
           
           try {
-            // Chercher des .exe dans ce dossier
+            // Chercher des .exe dans ce dossier et ne garder que le principal
             const exeFiles = this.findExeInDirectory(appPath, 2);
-            
-            if (exeFiles.length > 0) {
-              // Prioriser l'exe principal (nom du dossier)
-              const mainExe = exeFiles.find(exe => 
-                path.basename(exe, '.exe').toLowerCase() === item.name.toLowerCase()
-              ) || exeFiles[0];
-              
+            const mainExe = this.getMainExe(exeFiles, item.name);
+
+            if (mainExe) {
               apps.push({
                 path: mainExe,
                 name: path.basename(mainExe),
@@ -490,27 +620,90 @@ class FileSearcher extends EventEmitter {
     }
   }
 
+  // Patterns d'exécutables secondaires à exclure
+  isSecondaryExe(name) {
+    const n = name.toLowerCase().replace('.exe', '');
+    const patterns = [
+      'unins', 'uninst', 'uninstall',
+      'setup', 'install', 'installer', 'bootstrap',
+      'updater', 'update', 'autoupdate', 'au3',
+      'helper', 'helpers',
+      'crash', 'crashpad', 'crashreport', 'reporter',
+      'service', 'svc',
+      'daemon',
+      'agent',
+      'background',
+      'worker',
+      'broker',
+      'monitor',
+      'notif', 'notification',
+      'tray',
+      'elevate', 'elevated',
+      'launcher',   // souvent secondaire (sauf si c'est le seul exe)
+      'squirrel',
+      'cef',
+      'renderer',
+      'gpu',
+      'sandbox',
+      'nacl',
+      'wow_helper',
+      'initializer'
+    ];
+    return patterns.some(p => n === p || n.endsWith(p) || n.startsWith(p + '_') || n.includes('_' + p));
+  }
+
+  // Choisir l'exe principal d'un dossier pour un displayName donné
+  getMainExe(exeFiles, displayName) {
+    if (exeFiles.length === 0) return null;
+
+    // Filtrer les exes qui existent réellement sur le disque
+    const existing = exeFiles.filter(f => {
+      try { return fs.existsSync(f); } catch (_) { return false; }
+    });
+    if (existing.length === 0) return null;
+    if (existing.length === 1) return existing[0];
+
+    const primary = existing.filter(f => !this.isSecondaryExe(path.basename(f)));
+    const pool = primary.length > 0 ? primary : existing;
+
+    // 1. Exe dont le nom correspond au displayName
+    const dq = (displayName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const byName = pool.find(f => {
+      const n = path.basename(f, '.exe').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return n === dq || dq.startsWith(n) || n.startsWith(dq);
+    });
+    if (byName) return byName;
+
+    // 2. Le plus gros (généralement le binaire principal)
+    let biggest = pool[0];
+    let biggestSize = 0;
+    for (const f of pool) {
+      try {
+        const s = fs.statSync(f).size;
+        if (s > biggestSize) { biggestSize = s; biggest = f; }
+      } catch (_) { /* ignorer */ }
+    }
+    return biggest;
+  }
+
   // Trouver les .exe dans un dossier (récursif limité)
   findExeInDirectory(dir, maxDepth = 2, currentDepth = 0) {
     if (currentDepth > maxDepth) return [];
     
     const exeFiles = [];
-    
+    const skipDirs = ['cache', 'temp', 'logs', 'data', 'locales', 'resources',
+                      'swiftshader', 'dictionaries', 'extensions', '__pycache__'];
+
     try {
       const items = fs.readdirSync(dir, { withFileTypes: true });
       
       for (const item of items) {
         const fullPath = path.join(dir, item.name);
         
-        if (item.isFile() && item.name.endsWith('.exe')) {
-          // Ignorer les exe de désinstallation
-          if (!item.name.toLowerCase().includes('unins') && 
-              !item.name.toLowerCase().includes('setup')) {
-            exeFiles.push(fullPath);
-          }
+        if (item.isFile() && item.name.toLowerCase().endsWith('.exe')) {
+          exeFiles.push(fullPath);
         } else if (item.isDirectory() && currentDepth < maxDepth) {
-          // Éviter certains dossiers inutiles
-          if (!['cache', 'temp', 'logs', 'data'].includes(item.name.toLowerCase())) {
+          if (!skipDirs.includes(item.name.toLowerCase())) {
             exeFiles.push(...this.findExeInDirectory(fullPath, maxDepth, currentDepth + 1));
           }
         }
@@ -599,40 +792,34 @@ class FileSearcher extends EventEmitter {
   // Déduplication intelligente
   deduplicateApps(apps) {
     const uniqueMap = new Map();
-    
+
+    // Priorité des sources : start_menu en tête car chemins vérifiés par PowerShell
+    const sourcePriority = {
+      'start_menu':     7,  // ⭐ chemins vérifiés via COM WScript.Shell
+      'windows_system': 6,
+      'uwp':            5,
+      'registry':       4,
+      'disk_scan':      3,
+      'known_path':     3,
+      'appdata':        2
+    };
+
     for (const app of apps) {
-      const key = app.nameWithoutExt.toLowerCase().trim();
-      
+      const key = (app.displayName || app.nameWithoutExt).toLowerCase().trim();
+
       if (!uniqueMap.has(key)) {
         uniqueMap.set(key, app);
       } else {
-        // Garder la meilleure version (priorité au registre et exe direct)
         const existing = uniqueMap.get(key);
-        
-        // Priorité: registry > uwp > disk_scan > known_path > appdata
-        const sourcePriority = {
-          'registry': 5,
-          'uwp': 5,
-          'disk_scan': 4,
-          'known_path': 4,
-          'windows_system': 6,
-          'start_menu': 3,
-          'appdata': 2
-        };
-        
         const existingPriority = sourcePriority[existing.source] || 1;
-        const newPriority = sourcePriority[app.source] || 1;
-        
-        // Préférer .exe à .lnk
-        const existingIsExe = existing.extension === '.exe';
-        const newIsExe = app.extension === '.exe';
-        
-        if (newPriority > existingPriority || (newPriority === existingPriority && newIsExe && !existingIsExe)) {
+        const newPriority      = sourcePriority[app.source]      || 1;
+
+        if (newPriority > existingPriority) {
           uniqueMap.set(key, app);
         }
       }
     }
-    
+
     return Array.from(uniqueMap.values());
   }
 
@@ -933,153 +1120,171 @@ class FileSearcher extends EventEmitter {
     return 3;
   }
 
-  // Recherche (identique)
-  search(query, limit = 15) {
-    if (!query || query.trim().length === 0) return [];
-    if (!this.appsFuse || !this.fuse) return [];
+  // ─── Scoring Windows-like ───────────────────────────────────────────────────
+  // Priorités (plus bas = meilleur) :
+  //   0  correspondance exacte
+  //  10  commence par la query
+  //  20  un mot commence par la query
+  //  25  initiales des mots (ex : "vsc" → "Visual Studio Code")
+  //  30  contient la query
+  //  50+ tolérance aux fautes de frappe (queries ≥ 4 chars, distance ≤ 2)
+  // Infinity → aucune correspondance
+  scoreMatch(q, item) {
+    const fields = [
+      (item.displayName   || '').toLowerCase(),
+      (item.nameWithoutExt || '').toLowerCase(),
+      (item.name          || '').toLowerCase()
+    ];
 
-    this.lastSearchAt = Date.now();
+    let best = Infinity;
 
-    this.refreshIndexForQuery();
+    for (const field of fields) {
+      if (!field) continue;
 
-    const queryLower = query.toLowerCase();
-    const canFilter = this.lastQuery && queryLower.startsWith(this.lastQuery) && this.lastResults.length > 0;
+      // 1. Exact
+      if (field === q) return 0;
 
-    if (canFilter) {
-      const filtered = this.lastResults.filter(item => {
-        const name = item.nameWithoutExtLower || '';
-        const display = item.displayNameLower || '';
-        const full = item.nameLower || '';
-        return name.includes(queryLower) || display.includes(queryLower) || full.includes(queryLower);
-      });
+      // 2. Commence par
+      if (field.startsWith(q)) { best = Math.min(best, 10); continue; }
 
-      const rescored = filtered.map(item => {
-        const name = item.nameWithoutExtLower || '';
-        const display = item.displayNameLower || '';
-        const base = typeof item.score === 'number' ? item.score : 1;
-        const prefixBoost = (name.startsWith(queryLower) || display.startsWith(queryLower)) ? 0.6 : 1;
-        return { ...item, score: base * prefixBoost };
-      });
+      const words = field.split(/[\s\-_\.\/\\]+/).filter(Boolean);
 
-      rescored.sort((a, b) => a.score - b.score);
-      const sliced = rescored.slice(0, limit);
+      // 3. Un mot commence par
+      if (words.some(w => w.startsWith(q))) { best = Math.min(best, 20); continue; }
 
-      this.lastQuery = queryLower;
-      this.lastResults = sliced;
-      return sliced;
+      // 4. Initiales (ex : "vsc" → ["Visual","Studio","Code"])
+      if (q.length >= 2) {
+        const initials = words.map(w => w[0] || '').join('');
+        if (initials.startsWith(q)) { best = Math.min(best, 25); continue; }
+      }
+
+      // 5. Contient
+      if (field.includes(q)) { best = Math.min(best, 30); continue; }
+
+      // 6. Tolérance typo (queries ≥ 4 chars)
+      if (q.length >= 4) {
+        for (const w of words) {
+          if (Math.abs(w.length - q.length) <= 2) {
+            const d = this.editDistance(q, w);
+            if (d <= 2) { best = Math.min(best, 50 + d * 10); break; }
+          }
+        }
+      }
     }
 
-    const startSearch = Date.now();
-    
-    let appResults = this.appsFuse.search(query, { limit: 8 });
-    let fileResults = this.fuse.search(query, { limit: limit * 2 });
-    
-    appResults = appResults.map(result => {
-      const item = result.item;
-      let customScore = result.score * 0.3;
-      if (item.isPrimary) customScore *= 0.5;
-      if (item.displayName?.toLowerCase().startsWith(query.toLowerCase())) customScore *= 0.4;
-      return { ...item, score: customScore, isApp: true };
-    });
-    
-    fileResults = fileResults.map(result => {
-      const item = result.item;
-      let customScore = result.score;
-      const daysSinceModified = (Date.now() - item.modified) / (1000 * 60 * 60 * 24);
-      if (daysSinceModified < 7) customScore *= 0.8;
-      customScore *= (11 - item.baseScore) / 10;
-      if (item.nameWithoutExt.toLowerCase().startsWith(query.toLowerCase())) customScore *= 0.6;
-      return { ...item, score: customScore, isApp: false };
-    });
-    
-    const allResults = [...appResults, ...fileResults];
-    allResults.sort((a, b) => a.score - b.score);
-    
-    const finalResults = allResults.slice(0, limit);
-    const endSearch = Date.now();
-    console.log(`🔎 "${query}": ${finalResults.length} résultats (${endSearch - startSearch}ms)`);
+    return best;
+  }
 
-    this.lastQuery = queryLower;
-    this.lastResults = finalResults;
-    
-    return finalResults;
+  // Distance de Levenshtein (pour la tolérance typo)
+  editDistance(a, b) {
+    const m = a.length, n = b.length;
+    if (Math.abs(m - n) > 3) return 99;
+    const dp = [];
+    for (let i = 0; i <= m; i++) {
+      dp[i] = [i];
+      for (let j = 1; j <= n; j++) {
+        dp[i][j] = i === 0 ? j
+          : a[i - 1] === b[j - 1] ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+    return dp[m][n];
+  }
+
+  // ─── Recherche principale ────────────────────────────────────────────────────
+  search(query, limit = 15) {
+    if (!query || !query.trim()) return [];
+    this.lastSearchAt = Date.now();
+    this.refreshIndexForQuery();
+
+    const q = query.toLowerCase().trim();
+    const t0 = Date.now();
+
+    // --- Applications ---
+    const scoredApps = [];
+    for (const item of this.appsIndex) {
+      const s = this.scoreMatch(q, item);
+      if (s === Infinity) continue;
+      // Tie-break : source prioritaire (baseScore plus élevé remonte)
+      scoredApps.push({ ...item, score: s - (item.baseScore || 0) * 0.001, isApp: true });
+    }
+    scoredApps.sort((a, b) => a.score - b.score);
+
+    // --- Fichiers ---
+    const scoredFiles = [];
+    for (const item of this.index) {
+      const s = this.scoreMatch(q, item);
+      if (s === Infinity) continue;
+      const ageDays = (Date.now() - new Date(item.modified).getTime()) / 86400000;
+      const recency  = Math.max(0, (7 - ageDays) / 7); // bonus si modifié < 7j
+      scoredFiles.push({
+        ...item,
+        score: s - (item.baseScore || 0) * 0.001 - recency * 0.001,
+        isApp: false
+      });
+    }
+    scoredFiles.sort((a, b) => a.score - b.score);
+
+    const topApps  = scoredApps.slice(0, 5);
+    const topFiles = scoredFiles.slice(0, Math.max(limit - topApps.length, 3));
+    const results  = [...topApps, ...topFiles];
+
+    this.lastQuery   = q;
+    this.lastResults = results;
+
+    console.log(`🔎 "${query}": ${topApps.length} apps + ${topFiles.length} fichiers (${Date.now() - t0}ms)`);
+    return results;
   }
 
   async searchAsync(query, limit = 15, searchId = 0) {
-    if (!query || query.trim().length === 0) return [];
-    if (!this.appsFuse || !this.fuse) return [];
+    if (!query || !query.trim()) return [];
     if (searchId !== this.currentSearchId) return [];
 
     this.lastSearchAt = Date.now();
     this.refreshIndexForQuery();
 
-    const queryLower = query.toLowerCase();
-    const canFilter = this.lastQuery && queryLower.startsWith(this.lastQuery) && this.lastResults.length > 0;
+    const q  = query.toLowerCase().trim();
+    const t0 = Date.now();
 
-    if (canFilter) {
-      const filtered = this.lastResults.filter(item => {
-        const name = item.nameWithoutExtLower || '';
-        const display = item.displayNameLower || '';
-        const full = item.nameLower || '';
-        return name.includes(queryLower) || display.includes(queryLower) || full.includes(queryLower);
-      });
-
-      const rescored = filtered.map(item => {
-        const name = item.nameWithoutExtLower || '';
-        const display = item.displayNameLower || '';
-        const base = typeof item.score === 'number' ? item.score : 1;
-        const prefixBoost = (name.startsWith(queryLower) || display.startsWith(queryLower)) ? 0.6 : 1;
-        return { ...item, score: base * prefixBoost };
-      });
-
-      rescored.sort((a, b) => a.score - b.score);
-      const sliced = rescored.slice(0, limit);
-
-      this.lastQuery = queryLower;
-      this.lastResults = sliced;
-      return sliced;
+    // --- Applications (synchrone, index petit) ---
+    const scoredApps = [];
+    for (const item of this.appsIndex) {
+      const s = this.scoreMatch(q, item);
+      if (s === Infinity) continue;
+      scoredApps.push({ ...item, score: s - (item.baseScore || 0) * 0.001, isApp: true });
     }
+    scoredApps.sort((a, b) => a.score - b.score);
 
+    // Céder la main entre les deux boucles
     await new Promise(resolve => setImmediate(resolve));
     if (searchId !== this.currentSearchId) return [];
 
-    const startSearch = Date.now();
-    let appResults = this.appsFuse.search(query, { limit: 8 });
+    // --- Fichiers ---
+    const scoredFiles = [];
+    for (const item of this.index) {
+      const s = this.scoreMatch(q, item);
+      if (s === Infinity) continue;
+      const ageDays = (Date.now() - new Date(item.modified).getTime()) / 86400000;
+      const recency  = Math.max(0, (7 - ageDays) / 7);
+      scoredFiles.push({
+        ...item,
+        score: s - (item.baseScore || 0) * 0.001 - recency * 0.001,
+        isApp: false
+      });
+    }
+    scoredFiles.sort((a, b) => a.score - b.score);
 
-    await new Promise(resolve => setImmediate(resolve));
     if (searchId !== this.currentSearchId) return [];
 
-    let fileResults = this.fuse.search(query, { limit: limit * 2 });
+    const topApps  = scoredApps.slice(0, 5);
+    const topFiles = scoredFiles.slice(0, Math.max(limit - topApps.length, 3));
+    const results  = [...topApps, ...topFiles];
 
-    appResults = appResults.map(result => {
-      const item = result.item;
-      let customScore = result.score * 0.3;
-      if (item.isPrimary) customScore *= 0.5;
-      if (item.displayName?.toLowerCase().startsWith(queryLower)) customScore *= 0.4;
-      return { ...item, score: customScore, isApp: true };
-    });
+    this.lastQuery   = q;
+    this.lastResults = results;
 
-    fileResults = fileResults.map(result => {
-      const item = result.item;
-      let customScore = result.score;
-      const daysSinceModified = (Date.now() - item.modified) / (1000 * 60 * 60 * 24);
-      if (daysSinceModified < 7) customScore *= 0.8;
-      customScore *= (11 - item.baseScore) / 10;
-      if (item.nameWithoutExt.toLowerCase().startsWith(queryLower)) customScore *= 0.6;
-      return { ...item, score: customScore, isApp: false };
-    });
-
-    const allResults = [...appResults, ...fileResults];
-    allResults.sort((a, b) => a.score - b.score);
-
-    const finalResults = allResults.slice(0, limit);
-    const endSearch = Date.now();
-    console.log(`🔎 "${query}": ${finalResults.length} résultats (${endSearch - startSearch}ms)`);
-
-    this.lastQuery = queryLower;
-    this.lastResults = finalResults;
-
-    return finalResults;
+    console.log(`🔎 "${query}": ${topApps.length} apps + ${topFiles.length} fichiers (${Date.now() - t0}ms)`);
+    return results;
   }
 
   getFileType(ext) {
